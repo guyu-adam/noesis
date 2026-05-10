@@ -61,6 +61,35 @@ J.clear()   # clear conversation history
 
 ---
 
+## Demo
+
+```python
+>>> from j import J
+
+>>> J.status()
+{'model': 'qwen3-jarves', 'history': 0, 'memory_entries': 12}
+
+>>> J.run("ls ~/Desktop | head -5")
+'code\niStar\njarves\n盈利\n量化'
+
+>>> J.ask("用 Python 写一个读取 CSV 并按第2列排序的函数")
+'def sort_csv(path, col=1):\n    import csv\n    with open(path) as f:\n        rows = list(csv.reader(f))\n    header, data = rows[0], rows[1:]\n    data.sort(key=lambda r: r[col])\n    return [header] + data'
+
+>>> J.summarize("~/Desktop/jarves/jarves.py", focus="endpoints")
+'Flask server on port 7860. 7 endpoints: /ask (Ollama LLM), /run (shell),
+/read (file), /summarize (LLM summary), /batch (parallel tasks),
+/note (memory store), /memory/clear. Semantic memory via nomic-embed-text.'
+
+>>> J.batch([("run", "date"), ("run", "df -h / | tail -1"), ("ask", "ping")])
+['Sat May 10 15:32:01 CST 2026',
+ '/dev/disk3s5  228Gi  91Gi  137Gi  40% / ',
+ 'pong']
+```
+
+Typical latency: `J.run` < 50ms, `J.ask` 1–4s (qwen3:8b on Apple Silicon).
+
+---
+
 ## Modelfiles
 
 Two included modelfiles:
