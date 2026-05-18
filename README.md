@@ -1,180 +1,126 @@
-# JARVES v6 "Secretary"
+# Noesis
 
-**Claude Code's local assistant.** Offloads file operations, shell execution, and routine LLM tasks to a local model — saving Claude API tokens on the tasks where a local model or zero-LLM path does the job.
+**A computational framework for investigating consciousness through the lens of GWT–IIT integration.**
 
 ---
 
-## What it saves
+## Motivation
 
-The biggest Claude token costs in daily use:
+Two theories dominate the scientific study of consciousness, and they rarely speak to each other:
 
-| Task | Without JARVES | With JARVES | Saving |
-|------|---------------|-------------|--------|
-| Read a 600-line Python file | ~12,000 tokens | — | — |
-| `/outline` that file | — | ~640 tokens returned | **~11,360 tokens** |
-| `/grep` for one function | — | ~130 tokens returned | **~11,870 tokens** |
-| `/summarize` a config file | — | ~200 tokens returned | **~11,800 tokens** |
-| `/run` git log, ls, find | — | 0 tokens | **100%** |
-| `/write` or `/patch` a file | Edit + Read round-trip | 0 tokens | **100%** |
+| | Global Workspace Theory (GWT) | Integrated Information Theory (IIT) |
+|---|---|---|
+| **Core claim** | Consciousness is *global broadcast* — information that wins access to a shared workspace and becomes available to all specialized modules | Consciousness is *integrated information* (Φ) — a system is conscious to the extent that its whole generates information irreducible to the sum of its parts |
+| **Strength** | Explains the **function** of consciousness: attention selection, serial bottleneck, reportability, cognitive control | Explains the **phenomenology** of consciousness: unity, richness, why some states feel like something and others don't |
+| **Weakness** | Does not explain why global availability *feels like anything* — the "hard problem" gap | Φ is computationally intractable for real systems; does not explain the cognitive architecture that produces it |
+| **Key metaphor** | A stage with a spotlight — many actors (specialized processors) compete, only one performs at a time | A photodiode has Φ=0, a complex network has Φ>0 — consciousness is a structural property of causal interaction |
 
-Zero-LLM endpoints (/grep, /outline, /tree, /exists, /write, /patch, /run, /read) never touch any model — they're pure Python and respond in <50ms.
+**The central question**: Are GWT and IIT contradictory, or are they describing the same phenomenon from different levels of analysis?
 
-LLM endpoints (/summarize, /codegen, /ask) route to a local Ollama model. No Claude API call, no cost.
+---
+
+## Hypothesis
+
+> **GWT provides the *mechanism* that generates high-Φ states. IIT provides the *metric* that quantifies the outcome. They are complementary descriptions of a single underlying process: consciousness as competitive integration.**
+
+Specifically:
+
+1. **Competition precedes integration.** Multiple specialized agents (analogous to cortical modules) process the same stimulus independently, generating competing interpretations. This competition raises the system's *effective information* — the system is in a more uncertain state before resolution.
+
+2. **Broadcast creates irreducibility.** When one agent's output wins the competition and is globally broadcast, the system transitions to a causally integrated state — the whole now constrains the parts in a way that cannot be decomposed.
+
+3. **Φ peaks at the broadcast moment.** The integrated information of the system should peak immediately after global broadcast, when the causal structure is maximally unified. Before broadcast, the system is differentiated (high *effective* information but low integration). After broadcast, it is integrated (high Φ but reduced differentiation). Consciousness is the transition between these two regimes.
+
+4. **Attention bottleneck is a Φ-maximizing mechanism.** The serial, competitive nature of GWT is not a design limitation — it is what allows the system to generate high-Φ states from local computation. Parallel broadcast would saturate integration; serial selection maintains differentiation.
 
 ---
 
 ## Architecture
 
+Noesis implements this hypothesis as a multi-agent system:
+
 ```
-Claude Code
-    │  HTTP POST (localhost:7860)
-    ▼
-jarves.py  (Flask)
-    │
-    ├── Zero-LLM path (instant, no model)
-    │     /run /read /grep /outline /tree /exists /write /patch
-    │
-    └── Local-LLM path (Ollama, no cloud)
-          /ask /summarize /codegen /batch
+                     ┌──────────────────┐
+                     │    Attention      │
+                     │    Controller     │  ← selects winner via salience
+                     └────────┬─────────┘
+                              │ broadcast
+              ┌───────────────┼───────────────┐
+              │       Global Workspace        │  ← shared state, Φ measured here
+              └───────────────┬───────────────┘
+         ┌────────────────────┼────────────────────┐
+    ┌────┴────┐  ┌────┴────┐  ┌────┴────┐  ┌───────┴──────┐
+    │Perceptor│  │Reasoner │  │Evaluator│  │   Narrator   │
+    │ (input  │  │ (logic) │  │ (value) │  │ (first-person│
+    │  parse) │  │         │  │         │  │   reports)   │
+    └─────────┘  └─────────┘  └─────────┘  └──────────────┘
+         │              │            │              │
+    ┌────┴──────────────┴────────────┴──────────────┴────┐
+    │              Shared Stimulus / Environment          │
+    └────────────────────────────────────────────────────┘
+```
+
+### Key components
+
+- **Specialized Agents** — Each agent is a local LLM (Ollama) with a distinct cognitive role. They process the same stimulus in parallel and produce competing "proposals" for conscious access.
+- **Attention Controller** — Computes salience for each proposal (novelty, relevance, emotional weight) and selects a single winner per cycle.
+- **Global Workspace** — The winner's output is broadcast here, visible to all agents in subsequent cycles. This is where Φ is computed.
+- **Narrator** — Generates first-person phenomenological reports based on the broadcast history.
+- **IIT Metrics Module** — Computes Φ-like measures from the causal state transition matrix of the global workspace over time.
+
+---
+
+## Research questions
+
+1. Does Φ (or a tractable proxy) peak at the moment of global broadcast?
+2. Does the competitive attention mechanism increase Φ compared to random/no selection?
+3. Do phenomenological reports from a GWT+IIT hybrid better match human consciousness data than either theory alone?
+4. Can we identify a "sweet spot" where Φ is maximized — enough competition to be differentiated, enough broadcast to be integrated?
+
+---
+
+## Project structure
+
+```
+noesis/
+├── noesis.py            # Main server — Flask API for experiment orchestration
+├── workspace.py         # Global workspace + attention controller
+├── iit.py               # Φ computation (starts as tractable proxy)
+├── experiment.py        # Experiment runner — stimuli, data collection, analysis
+├── agents/
+│   ├── __init__.py
+│   ├── base.py          # Abstract agent interface
+│   ├── perceptor.py     # Input processing agent
+│   ├── reasoner.py      # Logical reasoning agent
+│   ├── evaluator.py     # Affective/value evaluation agent
+│   └── narrator.py      # Phenomenological report generation
+├── memory.py            # Semantic memory with embeddings
+├── client.py            # Client for external agents (Claude Code, etc.)
+├── requirements.txt
+└── .gitignore
 ```
 
 ---
 
-## Quick start
+## Status
 
-### 1. Install Ollama and pull a model
+**Phase 1 — Framework** (current): Architecture design, component stubs, experiment protocol.
 
-```bash
-# https://ollama.com
-ollama pull qwen3:4b
-ollama create qwen3-4b-jarves -f Modelfile.qwen3-4b
+**Phase 2 — Single-agent baseline**: Verify that the agent system generates coherent proposals before adding competition.
 
-# Semantic memory (optional but recommended)
-ollama pull nomic-embed-text
-```
+**Phase 3 — Competition + broadcast**: Implement attention controller and global workspace. Run simple stimulus→broadcast→report cycles.
 
-### 2. Start the server
+**Phase 4 — Φ measurement**: Implement tractable Φ proxy. Measure integration across broadcast cycles.
 
-```bash
-pip install flask requests numpy rich
-python jarves.py
-# Server at http://localhost:7860
-```
-
-### 3. Use the client
-
-```python
-import sys; sys.path.insert(0, '/path/to/jarves')
-from j import J
-
-# Zero-LLM — instant, no model cost
-J.exists("~/project/file.py")                      # existence check
-J.outline("~/project/app.py")                      # function/class map
-J.grep("~/project/app.py", "def process", context=3)  # search with context
-J.tree("~/project", depth=2)                       # directory tree
-J.write("~/project/config.py", "KEY = 'value'")   # write file
-J.patch("~/project/config.py", "old_val", "new")  # find-and-replace
-J.run("git log --oneline -5")                      # shell command
-
-# Local-LLM — no Claude API tokens
-J.summarize("~/project/big_file.py", focus="error handling")
-J.codegen("write a function to flatten a nested list")
-J.ask("what does this regex do: r'\\d{3}-\\d{4}'")
-
-# Batch multiple ops in one call
-J.batch([
-    ("outline", "~/project/app.py"),
-    ("run", "pytest --tb=short"),
-    ("exists", "~/project/.env"),
-])
-```
-
----
-
-## Endpoint reference
-
-### Zero-LLM (no model involved)
-
-| Endpoint | Method | Key params | Returns |
-|----------|--------|-----------|---------|
-| `/run` | POST | `cmd`, `timeout` | `{output}` |
-| `/read` | POST | `path`, `limit` | `{content}` |
-| `/grep` | POST | `path`, `pattern`, `context` | `{matches}` |
-| `/outline` | POST | `path` | `{outline}` — func/class map |
-| `/tree` | POST | `path`, `depth` | `{tree}` |
-| `/exists` | POST | `path` | `{exists, is_file, size}` |
-| `/write` | POST | `path`, `content` | `{result}` |
-| `/patch` | POST | `path`, `old`, `new` | `{result}` |
-
-### Local-LLM (Ollama, no cloud)
-
-| Endpoint | Method | Key params | Returns |
-|----------|--------|-----------|---------|
-| `/ask` | POST | `task`, `max_tokens` | `{result}` |
-| `/summarize` | POST | `path` or `text`, `focus` | `{summary}` |
-| `/codegen` | POST | `task`, `lang` | `{code}` |
-| `/batch` | POST | `{tasks: [...]}` | `{results: [...]}` |
-| `/note` | POST | `key`, `value` | `{saved}` |
-| `/memory/clear` | POST | — | `{cleared}` |
-| `/status` | GET | — | `{status, model, tokens_saved_est}` |
-
----
-
-## Models
-
-| Modelfile | Base | Size | Notes |
-|-----------|------|------|-------|
-| `Modelfile.qwen3-4b` | qwen3:4b | 2.5 GB | **Recommended** — good for Apple Silicon |
-| `Modelfile.qwen3` | qwen3:8b | 5.2 GB | Better quality, slower |
-| `Modelfile.gemma3` | gemma3:4b | 3.3 GB | Fallback |
-
-**Tested on Apple Silicon (M-series).** Runs entirely on-device via Ollama.
-
----
-
-## Benchmark results (tested on Apple M-series, qwen3:4b)
-
-```
-Zero-LLM ops:  7/7 passed   avg response: 0.02s
-Local-LLM ops: 3/3 passed   avg response: 20-37s
-
-Tokens saved estimate (one session): ~30,000+
-Saving per /outline call: ~11,600 tokens
-Saving per /grep call:    ~11,900 tokens
-```
-
-Zero-LLM endpoints are always <50ms. LLM endpoints (summarize, codegen) take 15-40s on qwen3:4b due to chain-of-thought — use them for background tasks, not interactive queries.
-
----
-
-## Best use cases for Claude Code
-
-1. **"Does this file have a `process_data` function?"** → `J.grep("file.py", "def process_data")` — 0 tokens, instant
-2. **"What's in this project?"** → `J.tree("~/project")` — 0 tokens, compact output
-3. **"I need to understand this 800-line file"** → `J.summarize("file.py", focus="main logic")` — local LLM, no API cost
-4. **"Write a helper function for X"** → `J.codegen("...")` — local LLM, no API cost
-5. **"Patch this config value"** → `J.patch("config.py", "old", "new")` — 0 tokens, instant
+**Phase 5 — Publication experiments**: Run the experiments described in the research questions.
 
 ---
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.10+
 - Ollama running locally
-- `flask requests numpy rich`
-
-```bash
-pip install flask requests numpy rich
-```
-
----
-
-## Version history
-
-| Version | Changes |
-|---------|---------|
-| v6 "Secretary" | +5 new zero-LLM endpoints: /grep, /outline, /tree, /exists, /write, /patch; qwen3:4b; token savings counter |
-| v5 | Core architecture: /ask auto-routing, /run, /read, /summarize, /codegen, semantic memory |
+- `flask requests numpy rich scipy`
 
 ---
 
