@@ -351,13 +351,13 @@ def phi_collaborative(
     if not proposals or not coalition_names:
         return phi_proxy(workspace_state, history, proposals)
 
-    coalition_proposals = {k: v for k, v in proposals.items() if k in coalition_names}
-    if not coalition_proposals:
-        return phi_proxy(workspace_state, history, proposals)
-
-    # Identical formula to phi_proxy, computed over coalition proposals only.
-    # This is the sole methodological difference: coalition joint output vs single winner.
-    return phi_proxy(workspace_state, history, coalition_proposals)
+    # Pass ALL proposals — same as phi_proxy in competitive mode.
+    # The workspace content already encodes what was broadcast (merged coalition output).
+    # MI is computed as I(workspace_state ; all_agents_jointly), measuring how well the
+    # broadcast workspace integrates the full set of agent perspectives. Limiting to
+    # coalition proposals would reduce the MI numerator by proposal count, creating a
+    # systematic artifact that masks genuine integration differences between modes.
+    return phi_proxy(workspace_state, history, proposals)
 
 
 def phi_trace(phi_history: list[float]) -> dict:
