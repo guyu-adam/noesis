@@ -1,0 +1,142 @@
+{
+  "results_summary": {
+    "competitive": {
+      "mean_phi_after": 0.798195,
+      "std_phi_after": 0.204396,
+      "mean_phi_before": 0.689997,
+      "mean_phi_delta": 0.108198,
+      "std_phi_delta": 0.151032,
+      "max_phi_delta": 0.572838,
+      "n_cycles": 100,
+      "broadcast_rate": 1.0
+    },
+    "random": {
+      "mean_phi_after": 0.772722,
+      "std_phi_after": 0.200673,
+      "mean_phi_before": 0.583318,
+      "mean_phi_delta": 0.189404,
+      "std_phi_delta": 0.147194,
+      "max_phi_delta": 0.519368,
+      "n_cycles": 100,
+      "broadcast_rate": 1.0
+    },
+    "no_broadcast": {
+      "mean_phi_after": 0.0,
+      "std_phi_after": 0.0,
+      "mean_phi_before": 0.0,
+      "mean_phi_delta": 0.0,
+      "std_phi_delta": 0.0,
+      "max_phi_delta": 0.0,
+      "n_cycles": 100,
+      "broadcast_rate": 0.0
+    },
+    "collaborative": {
+      "mean_phi_after": 0.792114,
+      "std_phi_after": 0.257655,
+      "mean_phi_before": 0.578415,
+      "mean_phi_delta": 0.213699,
+      "std_phi_delta": 0.170662,
+      "max_phi_delta": 0.673206,
+      "n_cycles": 100,
+      "broadcast_rate": 1.0
+    },
+    "hybrid": {
+      "mean_phi_after": 0.752074,
+      "std_phi_after": 0.215607,
+      "mean_phi_before": 0.578967,
+      "mean_phi_delta": 0.173107,
+      "std_phi_delta": 0.151932,
+      "max_phi_delta": 0.621784,
+      "n_cycles": 100,
+      "broadcast_rate": 1.0
+    }
+  },
+  "analysis": {
+    "competitive": {
+      "mean_phi_delta": 0.108198,
+      "max_phi_delta": 0.572838,
+      "mean_phi_after": 0.798195,
+      "n_cycles": 100,
+      "broadcast_rate": 1.0
+    },
+    "random": {
+      "mean_phi_delta": 0.189404,
+      "max_phi_delta": 0.519368,
+      "mean_phi_after": 0.772722,
+      "n_cycles": 100,
+      "broadcast_rate": 1.0
+    },
+    "no_broadcast": {
+      "mean_phi_delta": 0.0,
+      "max_phi_delta": 0.0,
+      "mean_phi_after": 0.0,
+      "n_cycles": 100,
+      "broadcast_rate": 0.0
+    },
+    "collaborative": {
+      "mean_phi_delta": 0.213699,
+      "max_phi_delta": 0.673206,
+      "mean_phi_after": 0.792114,
+      "n_cycles": 100,
+      "broadcast_rate": 1.0
+    },
+    "hybrid": {
+      "mean_phi_delta": 0.173107,
+      "max_phi_delta": 0.621784,
+      "mean_phi_after": 0.752074,
+      "n_cycles": 100,
+      "broadcast_rate": 1.0
+    },
+    "hypothesis_tests": {
+      "collaborative_vs_competitive": {
+        "label": "H1: Collaborative \u03a6 > Competitive \u03a6",
+        "U_statistic": 6923.0,
+        "p_value": 1e-06,
+        "significant": true,
+        "supported": true
+      },
+      "collaborative_vs_random": {
+        "label": "H2: Collaborative \u03a6 > Random \u03a6",
+        "U_statistic": 5358.5,
+        "p_value": 0.190859,
+        "significant": false,
+        "supported": false
+      },
+      "hybrid_vs_competitive": {
+        "label": "H3: Hybrid \u03a6 > Competitive \u03a6",
+        "U_statistic": 6410.0,
+        "p_value": 0.000287,
+        "significant": true,
+        "supported": true
+      },
+      "competitive_vs_random": {
+        "label": "H4: Competitive \u03a6 > Random \u03a6",
+        "U_statistic": 3383.0,
+        "p_value": 0.999961,
+        "significant": false,
+        "supported": false
+      },
+      "competitive_vs_no_broadcast": {
+        "label": "H5: Broadcast \u03a6 > No-broadcast \u03a6",
+        "U_statistic": 7400.0,
+        "p_value": 0.0,
+        "significant": true,
+        "supported": true
+      }
+    }
+  },
+  "metadata": {
+    "model": "qwen3.5:4b",
+    "n_stimuli": 20,
+    "cycles_per_stimulus": 5,
+    "modes": [
+      "competitive",
+      "random",
+      "no_broadcast",
+      "collaborative",
+      "hybrid"
+    ],
+    "total_cycles": 500,
+    "timestamp": "2026-05-20T00:48:48"
+  }
+}
