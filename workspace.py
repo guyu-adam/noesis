@@ -264,3 +264,228 @@ def np_log(x: float) -> float:
     """Safe log that returns 0 for x <= 0."""
     import math
     return math.log(x) if x > 0 else 0.0
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Collaborative Extension — CGWT
+# ──────────────────────────────────────────────────────────────────────────────
+
+class ConsensusController:
+    """
+    Collaborative attention mechanism for the Collaborative Global Workspace.
+
+    Unlike AttentionController (winner-take-all), ConsensusController selects
+    a coalition of agents whose outputs achieve sufficient mutual agreement,
+    then merges their contributions into a unified broadcast.
+
+    Three-stage process:
+      1. Score each proposal against the shared world model (consensus alignment)
+      2. Select top-k candidates that exceed agreement threshold
+      3. Merge coalition outputs into a composite broadcast representation
+
+    The hypothesis: coalition broadcast raises Φ above single-winner broadcast
+    because the merged state has more causal connections (higher irreducibility).
+
+    Parameters:
+        coalition_size: Maximum agents in a coalition (default 2).
+        agreement_threshold: Minimum pairwise agreement for coalition (0-1).
+        world_model_weight: How much world model score influences selection.
+    """
+
+    def __init__(self, memory, coalition_size: int = 2,
+                 agreement_threshold: float = 0.3,
+                 world_model_weight: float = 0.4):
+        self.memory = memory
+        self.coalition_size = coalition_size
+        self.agreement_threshold = agreement_threshold
+        self.world_model_weight = world_model_weight
+
+    def select_coalition(
+        self,
+        proposals: dict[str, str],
+        world_model,
+        context: str = "",
+        workspace_for_suppression=None,
+    ) -> tuple[list[str], str, float]:
+        """
+        Select a coalition of agents for collaborative broadcast.
+
+        Returns:
+            (coalition_names, merged_content, consensus_score)
+        """
+        if not proposals:
+            return ([], "", 0.0)
+
+        # Score each proposal
+        scored = []
+        for name, content in proposals.items():
+            if not content:
+                continue
+            wm_score = world_model.get_consensus_score(content)
+            pred_err = world_model.get_prediction_error(name, content)
+            tokens = content.split()
+            intensity = min(1.0, np_log(len(tokens)) / np_log(500))
+
+            # Combined score: world-model alignment + novelty (prediction error) + intensity
+            score = (self.world_model_weight * wm_score
+                     + 0.35 * pred_err
+                     + 0.25 * intensity)
+
+            if workspace_for_suppression and workspace_for_suppression.is_suppressed(content):
+                score *= 0.6
+
+            scored.append((score, name, content))
+
+        if not scored:
+            return ([], "", 0.0)
+
+        scored.sort(reverse=True)
+
+        # Select coalition: take top candidates with sufficient pairwise agreement
+        coalition = [scored[0]]
+        for candidate in scored[1:self.coalition_size + 1]:
+            if _pairwise_agreement(coalition[0][2], candidate[2]) >= self.agreement_threshold:
+                coalition.append(candidate)
+            if len(coalition) >= self.coalition_size:
+                break
+
+        coalition_names = [c[1] for c in coalition]
+        coalition_contents = [c[2] for c in coalition]
+        consensus_score = sum(c[0] for c in coalition) / len(coalition)
+
+        # Merge coalition outputs
+        merged = _merge_coalition(coalition_contents)
+
+        return (coalition_names, merged, round(consensus_score, 4))
+
+
+class CollaborativeWorkspace(GlobalWorkspace):
+    """
+    Extended global workspace supporting collaborative (multi-agent) broadcast.
+
+    Inherits all standard GWT mechanisms from GlobalWorkspace, adds:
+      - collaborative_broadcast(): multi-agent coalition enters workspace jointly
+      - World model integration (updated each cycle)
+      - Coalition history tracking
+    """
+
+    def __init__(self, memory):
+        super().__init__(memory)
+        from world_model import WorldModel
+        self.world_model = WorldModel()
+        self.coalition_history: list[dict] = []
+
+    def collaborative_broadcast(
+        self,
+        coalition_names: list[str],
+        merged_content: str,
+        consensus_score: float,
+        proposals: dict[str, str],
+    ) -> dict:
+        """
+        Broadcast the merged output of a coalition into the global workspace.
+
+        This replaces winner-take-all broadcast with coalition-consensus broadcast:
+        multiple agents jointly contribute, their merged representation becomes
+        globally available.
+        """
+        with self._lock:
+            self._cycle_count += 1
+            entry = {
+                "cycle": self._cycle_count,
+                "agent": f"coalition:{'+'.join(coalition_names)}",
+                "coalition": coalition_names,
+                "content": merged_content,
+                "attention_score": round(consensus_score, 4),
+                "consensus_score": round(consensus_score, 4),
+                "n_coalition": len(coalition_names),
+                "time": time.time(),
+            }
+            self.current_content = merged_content
+            self.history.append(entry)
+            self.coalition_history.append(entry)
+
+            content_hash = _content_fingerprint(merged_content)
+            self.suppressed.add(content_hash)
+
+        # Update world model with all proposals
+        self.world_model.update(merged_content, proposals)
+
+        for name in coalition_names:
+            self.memory.store(f"collaborative:{name}", merged_content)
+
+        return entry
+
+    def reset(self):
+        super().reset()
+        self.coalition_history = []
+        from world_model import WorldModel
+        self.world_model = WorldModel()
+
+
+def _pairwise_agreement(content_a: str, content_b: str) -> float:
+    """
+    Measure semantic agreement between two agent outputs via Jaccard similarity.
+
+    High agreement → agents share common ground → coalition is coherent.
+    Low agreement → outputs are orthogonal → no coalition benefit.
+    """
+    if not content_a or not content_b:
+        return 0.0
+    tokens_a = set(content_a.lower().split())
+    tokens_b = set(content_b.lower().split())
+    if not tokens_a or not tokens_b:
+        return 0.0
+    intersection = len(tokens_a & tokens_b)
+    union = len(tokens_a | tokens_b)
+    return intersection / union if union > 0 else 0.0
+
+
+def _merge_coalition(contents: list[str], max_tokens: int = 300) -> str:
+    """
+    Merge multiple agent outputs into a unified coalition representation.
+
+    Strategy: extract consensus concepts (tokens appearing in majority of outputs)
+    and concatenate unique high-information segments from each agent.
+
+    This preserves both shared ground (consensus) and complementary perspectives
+    (diversity) — the key structural property enabling high-Φ coalition states.
+    """
+    if not contents:
+        return ""
+    if len(contents) == 1:
+        return contents[0]
+
+    from collections import Counter
+    all_tokens = []
+    for c in contents:
+        all_tokens.extend(c.lower().split())
+    token_freq = Counter(all_tokens)
+
+    # Consensus core: tokens in majority of outputs
+    threshold = len(contents) * 0.5
+    consensus_tokens = {tok for tok, cnt in token_freq.items()
+                        if cnt >= threshold and len(tok) > 2}
+
+    # Build merged: consensus summary + unique contributions
+    merged_parts = []
+
+    # Part 1: first output (highest scoring) as anchor
+    merged_parts.append(contents[0])
+
+    # Part 2: unique sentences from each additional agent
+    for content in contents[1:]:
+        sentences = [s.strip() for s in content.replace('.', '.\n').split('\n') if s.strip()]
+        for sent in sentences:
+            sent_tokens = set(sent.lower().split())
+            uniqueness = len(sent_tokens - set(contents[0].lower().split())) / max(len(sent_tokens), 1)
+            if uniqueness > 0.4:  # sentence adds new information
+                merged_parts.append(sent)
+                break
+
+    merged = " | ".join(merged_parts)
+    # Trim to max tokens
+    words = merged.split()
+    if len(words) > max_tokens:
+        merged = " ".join(words[:max_tokens])
+    return merged

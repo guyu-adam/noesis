@@ -67,3 +67,7 @@ class Narrator(BaseAgent):
         )
 
         return self._call_llm(prompt, max_tokens=300)
+
+    def process(self, stimulus: str, context: str = "") -> str:
+        """Narrator does not compete for broadcast; returns empty proposal."""
+        return ""
