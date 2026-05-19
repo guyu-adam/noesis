@@ -3,6 +3,7 @@
 **A computational framework for investigating consciousness through causal GWT–IIT integration.**
 
 > **Branch**: `main` — Neural agent backend (small RNNs, causal TPM-based Φ)
+> **Target**: Entropy (MDPI) / PLOS Computational Biology
 > For the LLM-based version, see [`noesis-llm`](https://github.com/guyu-adam/noesis/tree/noesis-llm) branch.
 
 ---
@@ -25,7 +26,7 @@ Two theories dominate the scientific study of consciousness:
 
 Unlike typical consciousness papers that argue from philosophy or neuroimaging, Noesis **builds a minimal computational system** where:
 
-1. **Agents are small recurrent neural networks** (32 neurons each), not LLMs. Each agent has real causal structure via its recurrent weight matrix W_rec. This makes Φ measurable from neural activation state transition matrices — not token-distribution proxies.
+1. **Agents are small recurrent neural networks** (32 neurons each). Each agent has real causal structure via its recurrent weight matrix W_rec. This makes Φ measurable from neural activation state transition matrices — not token-distribution proxies.
 
 2. **The GWT broadcast mechanism** (competition + attention + global workspace) is implemented as a dynamical system that the agents participate in cycle by cycle.
 
@@ -42,7 +43,7 @@ Unlike typical consciousness papers that argue from philosophy or neuroimaging, 
 | Φ computation | Neural activation TPM | Token-distribution MI |
 | Causal structure | Real (W_rec connectivity) | Proxy (text similarity) |
 | Relationship to IIT | Direct (causal Φ) | Indirect (proxy Φ) |
-| Target venue | Entropy / PLOS Comp Bio | AAMAS / JAIR |
+| Target venue | Entropy / PLOS Comp Bio | JAAMAS |
 
 ---
 
@@ -97,8 +98,10 @@ noesis/
 │   ├── narrator.py
 │   ├── neural_base.py     # Neural agent base (RNN)
 │   └── neural_agents.py   # Specialized neural agents
-├── cgwt_paper.tex         # CGWT paper draft (Entropy format)
-├── 审稿意见20260519.md     # Internal review document
+├── tests/
+│   ├── test_neural_iit.py   # Neural Φ computation tests
+│   └── test_world_model.py  # World model tests
+├── experiments/           # Auto-saved experiment data (JSONL)
 ├── requirements.txt
 └── .gitignore
 ```
@@ -108,34 +111,75 @@ noesis/
 ## Quick start
 
 ```bash
+# Install dependencies
 pip install -r requirements.txt
-# Start Ollama (for LLM endpoints only)
-ollama serve
+
 # Run server
 python noesis.py
 ```
 
-### LLM experiment (noesis-llm branch style)
-```bash
-curl -X POST http://localhost:7860/experiment/run \
-  -H 'Content-Type: application/json' \
-  -d '{"stimulus": "What is consciousness?", "mode": "competitive"}'
-```
+### Neural experiment (main branch)
 
-### Neural experiment (main branch style)
 ```bash
+# Single cycle
 curl -X POST http://localhost:7860/neural/run \
   -H 'Content-Type: application/json' \
   -d '{"stimulus": "What is consciousness?", "mode": "collaborative"}'
+
+# Multi-mode comparison
+curl -X POST http://localhost:7860/neural/compare \
+  -H 'Content-Type: application/json' \
+  -d '{"stimuli": ["What is consciousness?", "Explain pain", "Define self-awareness"], "modes": ["competitive", "random", "no_broadcast", "collaborative"], "cycles_per": 3}'
+
+# Get status
+curl http://localhost:7860/status
 ```
+
+### Available modes
+
+| Mode | Description |
+|------|-------------|
+| `competitive` | Standard GWT winner-take-all (baseline) |
+| `random` | Random winner selection (control) |
+| `no_broadcast` | No broadcast, agents process independently (control) |
+| `single_agent` | Only one agent active (control) |
+| `collaborative` | CGWT coalition consensus broadcast |
+| `hybrid` | Competitive narrowing → top-2 coalition merge |
+
+### Running tests
+
+```bash
+pip install pytest numpy scipy
+python -m pytest tests/ -v
+```
+
+---
+
+## Data persistence
+
+Experiment results are automatically saved to `experiments/<date>/<mode>.jsonl` each cycle.
+Each record includes: timestamp, cycle_id, phi values, proposals, winner, coalition, and more.
 
 ---
 
 ## Status
 
-**main branch**: Neural agent framework in place. Architecture: workspace + attention controller + consensus controller + 3 specialized RNN agents + neural IIT module. Next: run experiments, validate Φ computation, write paper.
+**Neural framework** in place. Architecture: workspace + attention controller + consensus controller + 3 specialized RNN agents + world model + neural IIT module.
 
-**noesis-llm branch**: LLM-based implementation functional. See branch README.
+**Completed:**
+- Small RNN agents with specialized recurrent connectivity
+- Neural Φ computation from activation TPMs
+- Collaborative workspace with coalition broadcast
+- World model with consensus scoring and prediction error tracking
+- Dual-backend API (LLM + neural endpoints)
+- Experiment data auto-persistence
+- Unit tests for core Φ math and world model
+
+**Next:**
+- Run experiments, validate Φ computation
+- Weight sensitivity analysis
+- Scale to 5 agents with ablation experiments
+- Write paper for Entropy submission
 
 ---
 

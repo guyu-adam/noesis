@@ -19,12 +19,42 @@ Modes:
   - "hybrid": competitive narrows to top-2, then collaborative merge
 """
 
+import json
+import os
 import random
 import time
+from datetime import datetime
+from pathlib import Path
+
 from workspace import GlobalWorkspace, AttentionController, CollaborativeWorkspace, ConsensusController
 from iit import phi_proxy, phi_collaborative, information_geometry_metric
 
 _agent_cache: dict = {}
+EXPERIMENTS_DIR = Path(__file__).parent / "experiments"
+
+
+def _save_cycle_result(result: dict, mode: str, cycle_id: int):
+    """Persist a single cycle result to experiments/<date>/<mode>.jsonl."""
+    try:
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        dir_path = EXPERIMENTS_DIR / date_str
+        dir_path.mkdir(parents=True, exist_ok=True)
+
+        record = {
+            "timestamp": datetime.now().isoformat(),
+            "cycle_id": cycle_id,
+            **result,
+        }
+        # Convert numpy values to native types for JSON
+        for key, val in record.items():
+            if hasattr(val, 'tolist'):
+                record[key] = val.tolist() if hasattr(val, 'tolist') else str(val)
+
+        filepath = dir_path / f"{mode}.jsonl"
+        with open(filepath, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+    except Exception:
+        pass  # never let persistence failure crash the experiment
 
 
 def _get_agents(model: str):
@@ -108,6 +138,8 @@ def run_cycle(
         ctrl = ConsensusController(memory, coalition_size=2, agreement_threshold=0.25)
         cws = workspace if isinstance(workspace, CollaborativeWorkspace) else workspace
 
+        world_model = workspace.world_model
+
         if mode == "hybrid":
             # First do competitive pass to narrow to top-2 candidates
             comp_ctrl = AttentionController(memory)
@@ -123,19 +155,11 @@ def run_cycle(
                 runner_name, runner_content = scored_all[0][1], scored_all[0][2]
                 top2_proposals[runner_name] = runner_content
 
-            world_model = getattr(cws, 'world_model', None)
-            if world_model is None:
-                from world_model import WorldModel
-                world_model = WorldModel()
             coalition_names, winner_content, attention_score = ctrl.select_coalition(
                 top2_proposals, world_model, workspace_context, workspace
             )
         else:
             # Full collaborative: ConsensusController across all proposals
-            world_model = getattr(cws, 'world_model', None)
-            if world_model is None:
-                from world_model import WorldModel
-                world_model = WorldModel()
             coalition_names, winner_content, attention_score = ctrl.select_coalition(
                 proposals, world_model, workspace_context, workspace
             )
@@ -212,6 +236,8 @@ def run_cycle(
     }
     if mode == "competitive":
         result["ignition_threshold"] = AttentionController(memory).ignition_threshold
+
+    _save_cycle_result(result, mode, workspace._cycle_count)
     return result
 
 
@@ -427,29 +453,23 @@ def run_neural_cycle(
         ctrl = ConsensusController(memory, coalition_size=2, agreement_threshold=0.25)
         cws = workspace if isinstance(workspace, CollaborativeWorkspace) else workspace
 
+        world_model = workspace.world_model
+
         if mode == "hybrid":
             comp_ctrl = AttentionController(memory)
             top_name, top_content, top_score = comp_ctrl.select(
                 text_proposals, "", workspace_for_suppression=workspace
             )
             top2 = {top_name: top_content}
-            scored_all = [(comp_ctrl._score(v, "", ), k, v)
+            scored_all = [(comp_ctrl._score(v, ""), k, v)
                           for k, v in text_proposals.items() if k != top_name]
             if scored_all:
                 scored_all.sort(reverse=True)
                 top2[scored_all[0][1]] = scored_all[0][2]
-            world_model = getattr(cws, 'world_model', None)
-            if world_model is None:
-                from world_model import WorldModel
-                world_model = WorldModel()
             coalition_names, merged_text, attention_score = ctrl.select_coalition(
                 top2, world_model, "", workspace
             )
         else:
-            world_model = getattr(cws, 'world_model', None)
-            if world_model is None:
-                from world_model import WorldModel
-                world_model = WorldModel()
             coalition_names, merged_text, attention_score = ctrl.select_coalition(
                 text_proposals, world_model, "", workspace
             )
@@ -522,7 +542,7 @@ def run_neural_cycle(
     agent_stds = [float(np.std(p)) for p in proposals.values() if len(p) > 0]
     complexity = float(np.mean(agent_stds)) if agent_stds else 0.0
 
-    return {
+    result = {
         "stimulus_vec_shape": list(stimulus_vec.shape),
         "proposals": {k: _neural_vec_summary(v) for k, v in proposals.items()},
         "winner": winner_name,
@@ -539,6 +559,9 @@ def run_neural_cycle(
         "mode": mode,
         "agent_type": "neural_rnn",
     }
+
+    _save_cycle_result(result, mode, workspace._cycle_count)
+    return result
 
 
 def _neural_vec_to_text(vec: "np.ndarray", label: str = "") -> str:

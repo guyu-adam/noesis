@@ -42,6 +42,8 @@ class GlobalWorkspace:
         self.suppress_window: int = 3  # number of cycles to suppress repeats
         self._lock = threading.Lock()
         self._cycle_count: int = 0
+        from world_model import WorldModel
+        self.world_model = WorldModel()
 
     def broadcast(self, agent_name: str, content: str, attention_score: float = 0) -> dict:
         """
@@ -88,12 +90,21 @@ class GlobalWorkspace:
     def last_broadcast_cycle(self) -> int:
         return self._cycle_count
 
+    def read_vec(self):
+        """Return current workspace state as a vector for neural agent consumption."""
+        import numpy as np
+        if self.current_content:
+            return np.array([ord(c) / 128.0 for c in self.current_content[:32]] + [0] * 32)[:32]
+        return np.zeros(32)
+
     def reset(self):
         with self._lock:
             self.current_content = None
             self.history = []
             self.suppressed = set()
             self._cycle_count = 0
+            from world_model import WorldModel
+            self.world_model = WorldModel()
 
 
 def _content_fingerprint(content: str, ngram: int = 3) -> str:
