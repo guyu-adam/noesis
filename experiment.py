@@ -307,3 +307,255 @@ def analyze_comparison(results: dict[str, list[dict]]) -> dict:
         analysis["hypothesis_tests"] = {"error": str(e)}
 
     return analysis
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Neural experiment runner — for main branch (SNN/RNN agents, real causal Φ)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_neural_agent_cache: dict = {}
+
+
+def _get_neural_agents(n_neurons: int = 32, n_input: int = 16):
+    """Initialize or retrieve neural agent instances."""
+    if "perceptor" not in _neural_agent_cache:
+        from agents.neural_agents import NeuralPerceptor, NeuralReasoner, NeuralEvaluator, NeuralNarrator
+
+        _neural_agent_cache["perceptor"] = NeuralPerceptor(n_neurons, n_input, seed=100)
+        _neural_agent_cache["reasoner"] = NeuralReasoner(n_neurons, n_input, seed=200)
+        _neural_agent_cache["evaluator"] = NeuralEvaluator(n_neurons, n_input, seed=300)
+        _neural_agent_cache["narrator"] = NeuralNarrator()
+        _neural_agent_cache["n_neurons"] = n_neurons
+        _neural_agent_cache["n_input"] = n_input
+    return _neural_agent_cache
+
+
+def run_neural_cycle(
+    stimulus_vec: "np.ndarray",
+    workspace,     # GlobalWorkspace or CollaborativeWorkspace
+    memory,
+    mode: str = "competitive",
+    n_neurons: int = 32,
+    n_input: int = 16,
+) -> dict:
+    """
+    Run one experimental cycle using NEURAL agents (small RNNs), not LLMs.
+
+    This is the MAIN BRANCH experiment runner. Key differences from run_cycle():
+
+      - Agents are small RNNs with real recurrent causal structure
+      - Proposals are activation vectors (numpy arrays), not text strings
+      - Φ is computed from neural activation TPMs (neural_iit.py)
+      - The "broadcast" is an activation pattern injected into all agents
+
+    The experimental protocol (GWT/IIT cycle structure) is identical to the
+    LLM version — only the agent implementation differs.
+
+    Args:
+        stimulus_vec: Shape (n_input,). Encoded stimulus vector.
+        workspace: GlobalWorkspace or CollaborativeWorkspace.
+        memory: SemanticMemory instance.
+        mode: "competitive" | "random" | "no_broadcast" | "single_agent"
+              | "collaborative" | "hybrid"
+        n_neurons: Neurons per agent (default 32).
+        n_input: Stimulus vector dimension (default 16).
+
+    Returns:
+        Dict with full cycle data including neural Φ.
+    """
+    import numpy as np
+    from neural_iit import (
+        neural_phi, neural_information_geometry, cluster_activation_states,
+    )
+
+    agents = _get_neural_agents(n_neurons, n_input)
+    workspace_context_vec = workspace.read_vec() if hasattr(workspace, 'read_vec') else np.zeros(n_neurons)
+
+    # ── Phase 1: Pre-broadcast Φ ───────────────────────────────────────
+    if hasattr(workspace, 'read_vec'):
+        phi_before = neural_phi(
+            workspace.read_vec(),
+            {k: v.read_proposal() for k, v in agents.items()
+             if hasattr(v, 'read_proposal')},
+            workspace.history if hasattr(workspace, 'history') else [],
+        )
+    else:
+        phi_before = 0.0
+
+    # ── Phase 2: Neural agents process stimulus ────────────────────────
+    proposals = {}
+    agent_names = ["perceptor", "reasoner", "evaluator"]
+
+    if mode == "single_agent":
+        try:
+            proposals["reasoner"] = agents["reasoner"].process(
+                stimulus_vec, workspace_context_vec
+            )
+        except Exception as e:
+            proposals["reasoner"] = np.zeros(n_neurons)
+    else:
+        for name in agent_names:
+            try:
+                proposals[name] = agents[name].process(
+                    stimulus_vec, workspace_context_vec
+                )
+            except Exception:
+                proposals[name] = np.zeros(n_neurons)
+
+    # ── Phase 3: Selection (reuses same AttentionController/ConsensusController) ──
+    broadcasted = False
+    coalition_names = []
+    winner_name = "none"
+    winner_vec = np.zeros(n_neurons)
+    attention_score = 0.0
+
+    # Convert neural proposals to text summaries for the text-based controllers
+    # (AttentionController and ConsensusController operate on text)
+    text_proposals = {}
+    for name, vec in proposals.items():
+        text_proposals[name] = _neural_vec_to_text(vec, name)
+
+    if mode == "random":
+        agent_names_shuffled = list(text_proposals.keys())
+        winner_name = random.choice(agent_names_shuffled) if agent_names_shuffled else "none"
+        winner_vec = proposals.get(winner_name, np.zeros(n_neurons))
+
+    elif mode == "no_broadcast":
+        pass
+
+    elif mode in ("collaborative", "hybrid"):
+        ctrl = ConsensusController(memory, coalition_size=2, agreement_threshold=0.25)
+        cws = workspace if isinstance(workspace, CollaborativeWorkspace) else workspace
+
+        if mode == "hybrid":
+            comp_ctrl = AttentionController(memory)
+            top_name, top_content, top_score = comp_ctrl.select(
+                text_proposals, "", workspace_for_suppression=workspace
+            )
+            top2 = {top_name: top_content}
+            scored_all = [(comp_ctrl._score(v, "", ), k, v)
+                          for k, v in text_proposals.items() if k != top_name]
+            if scored_all:
+                scored_all.sort(reverse=True)
+                top2[scored_all[0][1]] = scored_all[0][2]
+            world_model = getattr(cws, 'world_model', None)
+            if world_model is None:
+                from world_model import WorldModel
+                world_model = WorldModel()
+            coalition_names, merged_text, attention_score = ctrl.select_coalition(
+                top2, world_model, "", workspace
+            )
+        else:
+            world_model = getattr(cws, 'world_model', None)
+            if world_model is None:
+                from world_model import WorldModel
+                world_model = WorldModel()
+            coalition_names, merged_text, attention_score = ctrl.select_coalition(
+                text_proposals, world_model, "", workspace
+            )
+
+        winner_name = f"coalition:{'+'.join(coalition_names)}" if coalition_names else "none"
+        # Merge coalition activation vectors
+        if coalition_names:
+            coalition_vecs = [proposals[n] for n in coalition_names if n in proposals]
+            winner_vec = np.mean(coalition_vecs, axis=0) if coalition_vecs else np.zeros(n_neurons)
+
+        if coalition_names and isinstance(workspace, CollaborativeWorkspace):
+            workspace.collaborative_broadcast(
+                coalition_names,
+                _neural_vec_to_text(winner_vec, "coalition"),
+                attention_score,
+                text_proposals,
+            )
+            broadcasted = True
+        elif coalition_names:
+            workspace.broadcast(winner_name, _neural_vec_to_text(winner_vec, winner_name), attention_score)
+            broadcasted = True
+
+    else:
+        # Competitive (GWT)
+        ctrl = AttentionController(memory)
+        winner_name, winner_content, attention_score = ctrl.select(
+            text_proposals, "", workspace_for_suppression=workspace
+        )
+        winner_vec = proposals.get(winner_name, np.zeros(n_neurons))
+        if winner_name != "none":
+            workspace.broadcast(winner_name, winner_content, attention_score)
+            broadcasted = True
+
+    # Standard broadcast for non-collaborative modes
+    if mode in ("random", "single_agent") and winner_name != "none":
+        workspace.broadcast(winner_name, _neural_vec_to_text(winner_vec, winner_name), attention_score)
+        broadcasted = True
+
+    # Store activation vector in workspace history (for neural Φ)
+    if hasattr(workspace, 'history') and workspace.history:
+        workspace.history[-1]["content_vec"] = winner_vec
+
+    # ── Phase 4: Post-broadcast neural Φ ───────────────────────────────
+    phi_after = neural_phi(
+        winner_vec,
+        {k: v for k, v in proposals.items()},
+        workspace.history if hasattr(workspace, 'history') else [],
+    )
+
+    # ── Phase 5: Information geometry ─────────────────────────────────
+    if hasattr(workspace, 'history'):
+        hist_activations = [
+            h.get("content_vec", np.zeros(n_neurons))
+            for h in workspace.history[-10:]
+        ]
+    else:
+        hist_activations = [winner_vec]
+    geo_metrics = neural_information_geometry(hist_activations)
+
+    # ── Phase 6: Neural narrative ─────────────────────────────────────
+    try:
+        narrative = agents["narrator"].generate(
+            winner_vec, phi_before, phi_after, winner_name, broadcasted
+        )
+        agents["narrator"].cycle_count += 1
+    except Exception:
+        narrative = "[narrator unavailable]"
+
+    # ── Phase 7: Complexity (differentiation) ─────────────────────────
+    agent_stds = [float(np.std(p)) for p in proposals.values() if len(p) > 0]
+    complexity = float(np.mean(agent_stds)) if agent_stds else 0.0
+
+    return {
+        "stimulus_vec_shape": list(stimulus_vec.shape),
+        "proposals": {k: _neural_vec_summary(v) for k, v in proposals.items()},
+        "winner": winner_name,
+        "coalition": coalition_names,
+        "attention_score": attention_score,
+        "broadcast": _neural_vec_to_text(winner_vec, winner_name) if broadcasted else "(no broadcast)",
+        "broadcasted": broadcasted,
+        "phi_before": phi_before,
+        "phi_after": phi_after,
+        "phi_delta": round(phi_after - phi_before, 6),
+        "fisher_trace": geo_metrics["fisher_trace"],
+        "complexity": round(complexity, 6),
+        "narrative": narrative,
+        "mode": mode,
+        "agent_type": "neural_rnn",
+    }
+
+
+def _neural_vec_to_text(vec: "np.ndarray", label: str = "") -> str:
+    """Convert neural activation vector to human-readable summary."""
+    import numpy as np
+    v = np.asarray(vec).flatten()
+    active = int(np.sum(np.abs(v) > 0.5))
+    total = len(v)
+    sparsity = 1.0 - active / total
+    mean_abs = float(np.mean(np.abs(v)))
+    top_dims = np.argsort(-np.abs(v))[:5]
+    top_str = ",".join(f"d{i}({v[i]:+.2f})" for i in top_dims)
+    return f"[{label}] {active}/{total} active (sp={sparsity:.2f}, μ|a|={mean_abs:.3f}) top: {top_str}"
+
+
+def _neural_vec_summary(vec: "np.ndarray") -> str:
+    """Short summary of a neural activation vector (for JSON serialization)."""
+    import numpy as np
+    v = np.asarray(vec).flatten()
+    return f"{int(np.sum(np.abs(v) > 0.5))}/{len(v)} active, μ|a|={float(np.mean(np.abs(v))):.3f}"

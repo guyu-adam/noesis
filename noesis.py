@@ -5,6 +5,10 @@ Multi-agent consciousness simulation where specialized agents compete
 for global workspace access. Φ (integrated information) is measured
 across broadcast cycles to test whether GWT mechanisms produce high-Φ states.
 
+Two agent backends:
+  - LLM agents (noesis-llm branch): Ollama-based, token-distribution Φ proxy
+  - Neural agents (main branch): Small RNNs, causal TPM-based Φ
+
 Two theories, one computational testbed.
 """
 
@@ -23,7 +27,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from workspace import GlobalWorkspace
+from workspace import GlobalWorkspace, CollaborativeWorkspace
 from memory import SemanticMemory
 from metrics import consciousness_profile, lz_complexity, semantic_entropy
 
@@ -84,7 +88,7 @@ class ExperimentState:
 state = ExperimentState()
 
 
-# ── Endpoints ──────────────────────────────────────────────────────────────
+# ── LLM Endpoints ──────────────────────────────────────────────────────────
 
 @app.route("/status")
 def status():
@@ -94,16 +98,13 @@ def status():
 @app.route("/experiment/run", methods=["POST"])
 def run_experiment():
     """
-    Run one cycle of the GWT+IIT experiment.
+    Run one cycle of the GWT+IIT experiment (LLM agents).
 
     Request:
         {
             "stimulus": "The input text all agents process",
-            "mode": "competitive"  // optional: competitive|random|no_broadcast|single_agent
+            "mode": "competitive"
         }
-
-    Response:
-        {cycle data including phi, proposals, winner, broadcast, narrative, profile}
     """
     d = request.json or {}
     stimulus = d.get("stimulus", "").strip()
@@ -120,7 +121,6 @@ def run_experiment():
         from experiment import run_cycle
         result = run_cycle(stimulus, workspace, memory, MODEL, mode=mode)
 
-        # Attach consciousness profile
         result["profile"] = consciousness_profile(
             phi=result["phi_after"],
             complexity=result["complexity"],
@@ -139,16 +139,6 @@ def run_experiment():
 
 @app.route("/experiment/batch", methods=["POST"])
 def run_batch():
-    """
-    Run multiple cycles across different stimuli.
-
-    Request:
-        {
-            "stimuli": ["s1", "s2", ...],
-            "mode": "competitive",
-            "cycles_per_stimulus": 3
-        }
-    """
     d = request.json or {}
     stimuli = d.get("stimuli", [])
     mode = d.get("mode", "competitive")
@@ -185,24 +175,6 @@ def run_batch():
 
 @app.route("/experiment/compare", methods=["POST"])
 def run_comparison():
-    """
-    Run the FULL comparison experiment — same stimuli across all modes.
-
-    This is the definitive experiment that tests all three hypotheses:
-      1. Φ_competitive > Φ_random (competition matters)
-      2. Φ_competitive > Φ_no_broadcast (broadcast creates integration)
-      3. Φ_competitive > Φ_single_agent (multi-agent matters)
-
-    Request:
-        {
-            "stimuli": ["s1", "s2", ...],
-            "modes": ["competitive", "random", "no_broadcast"],
-            "cycles_per_stimulus": 3
-        }
-
-    Response:
-        {mode: [results], analysis: {hypothesis tests}}
-    """
     d = request.json or {}
     stimuli = d.get("stimuli", [])
     modes = d.get("modes", ["competitive", "random", "no_broadcast"])
@@ -231,12 +203,10 @@ def run_comparison():
 
 @app.route("/experiment/reset", methods=["POST"])
 def reset_experiment():
-    """Clear history and reset for fresh experiment."""
     global state
     state = ExperimentState()
     workspace.reset()
     memory.clear()
-    # Clear agent internal states
     for agents_dict in _agent_cache_global.values():
         for agent in agents_dict.values():
             agent.reset_state()
@@ -250,18 +220,148 @@ def get_memory():
 
 @app.route("/profile")
 def get_profile():
-    """Get full consciousness profile trace across cycles."""
     return jsonify({
         "profiles": state.profile_history[-20:],
         "summary": state.summary(),
     })
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Neural experiment endpoints — main branch (small RNN agents, real causal Φ)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_neural_state = None
+
+
+def _get_neural_state():
+    global _neural_state
+    if _neural_state is None:
+        _neural_state = ExperimentState()
+    return _neural_state
+
+
+@app.route("/neural/run", methods=["POST"])
+def neural_run():
+    """
+    Run one neural GWT+IIT cycle using small RNN agents.
+
+    Request:
+        {
+            "stimulus": "text to encode into stimulus vector",
+            "mode": "competitive",
+            "n_neurons": 32,
+            "n_input": 16
+        }
+    """
+    d = request.json or {}
+    stimulus_text = d.get("stimulus", "").strip()
+    mode = d.get("mode", "competitive")
+    n_neurons = d.get("n_neurons", 32)
+    n_input = d.get("n_input", 16)
+
+    if not stimulus_text:
+        return jsonify({"error": "stimulus required"}), 400
+    if mode not in ("competitive", "random", "no_broadcast", "single_agent",
+                    "collaborative", "hybrid"):
+        return jsonify({"error": f"unknown mode: {mode}"}), 400
+
+    from agents.neural_base import encode_stimulus
+    import numpy as np
+
+    nstate = _get_neural_state()
+    nstate.status = "RUNNING"
+
+    try:
+        from experiment import run_neural_cycle
+        stimulus_vec = encode_stimulus(stimulus_text, dim=n_input)
+
+        if mode in ("collaborative", "hybrid"):
+            if not isinstance(workspace, CollaborativeWorkspace):
+                _neural_ws = CollaborativeWorkspace(memory)
+            else:
+                _neural_ws = workspace
+        else:
+            _neural_ws = workspace
+
+        result = run_neural_cycle(
+            stimulus_vec, _neural_ws, memory, mode=mode,
+            n_neurons=n_neurons, n_input=n_input,
+        )
+        nstate.record_cycle(result)
+        nstate.status = "IDLE"
+        return jsonify(result)
+    except Exception as e:
+        nstate.status = "IDLE"
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/neural/compare", methods=["POST"])
+def neural_compare():
+    d = request.json or {}
+    stimuli = d.get("stimuli", [])
+    modes = d.get("modes", ["competitive", "random", "no_broadcast", "collaborative"])
+    cycles_per = d.get("cycles_per", 2)
+
+    if len(stimuli) < 2:
+        return jsonify({"error": "at least 2 stimuli required"}), 400
+
+    from agents.neural_base import encode_stimulus
+    import numpy as np
+
+    nstate = _get_neural_state()
+    nstate.status = "RUNNING"
+
+    try:
+        from experiment import run_neural_cycle
+
+        all_results = {}
+        for mode in modes:
+            mem = SemanticMemory()
+            ws = CollaborativeWorkspace(mem) if mode in ("collaborative", "hybrid") else GlobalWorkspace(mem)
+            mode_results = []
+            n_input = 16
+
+            for stim_text in stimuli:
+                stim_vec = encode_stimulus(stim_text, dim=n_input)
+                for _ in range(cycles_per):
+                    result = run_neural_cycle(stim_vec, ws, mem, mode=mode)
+                    mode_results.append(result)
+
+            all_results[mode] = mode_results
+            mem.clear()
+
+        analysis = {}
+        for mode, cycles in all_results.items():
+            deltas = [c["phi_delta"] for c in cycles]
+            analysis[mode] = {
+                "mean_phi_delta": round(float(np.mean(deltas)), 6),
+                "n_cycles": len(cycles),
+            }
+
+        nstate.status = "IDLE"
+        return jsonify({"results": all_results, "analysis": analysis})
+    except Exception as e:
+        nstate.status = "IDLE"
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/neural/reset", methods=["POST"])
+def neural_reset():
+    global _neural_state
+    _neural_state = ExperimentState()
+    from agents.neural_base import NeuralAgent
+    from experiment import _neural_agent_cache
+    for agent in _neural_agent_cache.values():
+        if isinstance(agent, NeuralAgent):
+            agent.reset_state()
+    workspace.reset()
+    return jsonify({"reset": True, "agent_type": "neural_rnn"})
+
+
 # Global reference for agent cache (used by reset)
 _agent_cache_global = {}
 
-
-# ── Monkey-patch agent cache ───────────────────────────────────────────────
+# Monkey-patch agent cache
 import experiment as _exp_mod
 _exp_mod._agent_cache = _agent_cache_global
 
@@ -279,19 +379,26 @@ if __name__ == "__main__":
 
     console.print(Panel(
         "[bold cyan]Noesis v0.2[/bold cyan]  ·  GWT–IIT Integration Framework\n\n"
-        "[bold]Endpoints:[/bold]\n"
-        "  [cyan]POST /experiment/run[/cyan]       — run one GWT+IIT cycle\n"
+        "[bold]LLM Agent Endpoints (noesis-llm branch):[/bold]\n"
+        "  [cyan]POST /experiment/run[/cyan]       — run one cycle (LLM agents)\n"
         "  [cyan]POST /experiment/batch[/cyan]     — run multiple stimuli\n"
         "  [cyan]POST /experiment/compare[/cyan]   — full comparison experiment\n"
-        "  [cyan]POST /experiment/reset[/cyan]     — reset experiment state\n"
-        "  [cyan]GET  /status[/cyan]               — Φ trace + summary\n"
+        "  [cyan]POST /experiment/reset[/cyan]     — reset experiment state\n\n"
+        "[bold]Neural Agent Endpoints (main branch):[/bold]\n"
+        "  [cyan]POST /neural/run[/cyan]          — run one cycle (RNN, causal Phi)\n"
+        "  [cyan]POST /neural/compare[/cyan]      — comparison (RNN agents)\n"
+        "  [cyan]POST /neural/reset[/cyan]        — reset neural experiment\n\n"
+        "[bold]Shared:[/bold]\n"
+        "  [cyan]GET  /status[/cyan]               — Phi trace + summary\n"
         "  [cyan]GET  /profile[/cyan]              — consciousness profile trace\n"
         "  [cyan]GET  /memory[/cyan]               — semantic memory view\n\n"
-        f"[bold]Model:[/bold] {MODEL}\n"
+        f"[bold]LLM Model:[/bold] {MODEL}\n"
+        "[bold]Neural:[/bold] RNN 32-neuron x 3 agents, causal TPM-based Phi\n"
         "[dim]http://localhost:7860[/dim]",
         border_style="cyan", title="[bold]Ready[/bold]"
     ))
     console.print("[green]Waiting for experiments...[/green]\n")
+    console.print("[dim]Tip: switch branch — main (neural/consciousness) / noesis-llm (LLM/multi-agent)[/dim]\n")
 
     while True:
         time.sleep(1)

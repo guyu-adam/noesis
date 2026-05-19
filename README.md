@@ -1,43 +1,52 @@
 # Noesis
 
-**A computational framework for investigating consciousness through the lens of GWT–IIT integration.**
+**A computational framework for investigating consciousness through causal GWT–IIT integration.**
+
+> **Branch**: `main` — Neural agent backend (small RNNs, causal TPM-based Φ)
+> For the LLM-based version, see [`noesis-llm`](https://github.com/guyu-adam/noesis/tree/noesis-llm) branch.
 
 ---
 
 ## Motivation
 
-Two theories dominate the scientific study of consciousness, and they rarely speak to each other:
+Two theories dominate the scientific study of consciousness:
 
 | | Global Workspace Theory (GWT) | Integrated Information Theory (IIT) |
 |---|---|---|
-| **Core claim** | Consciousness is *global broadcast* — information that wins access to a shared workspace and becomes available to all specialized modules | Consciousness is *integrated information* (Φ) — a system is conscious to the extent that its whole generates information irreducible to the sum of its parts |
-| **Strength** | Explains the **function** of consciousness: attention selection, serial bottleneck, reportability, cognitive control | Explains the **phenomenology** of consciousness: unity, richness, why some states feel like something and others don't |
-| **Weakness** | Does not explain why global availability *feels like anything* — the "hard problem" gap | Φ is computationally intractable for real systems; does not explain the cognitive architecture that produces it |
-| **Key metaphor** | A stage with a spotlight — many actors (specialized processors) compete, only one performs at a time | A photodiode has Φ=0, a complex network has Φ>0 — consciousness is a structural property of causal interaction |
+| **Core claim** | Consciousness is *global broadcast* — information that wins access to a shared workspace | Consciousness is *integrated information* (Φ) — irreducible to the sum of parts |
+| **Strength** | Explains the **function** of consciousness | Explains the **phenomenology** of consciousness |
+| **Weakness** | Doesn't explain why broadcast *feels like anything* | Φ is computationally intractable for real systems |
 
-**The central question**: Are GWT and IIT contradictory, or are they describing the same phenomenon from different levels of analysis?
+**Central question**: Are GWT and IIT contradictory, or complementary? Can we build a system where GWT-like broadcast mechanisms *produce* IIT-measurable high-Φ states?
 
 ---
 
-## Hypothesis
+## Approach (main branch)
 
-> **GWT provides the *mechanism* that generates high-Φ states. IIT provides the *metric* that quantifies the outcome. They are complementary descriptions of a single underlying process: consciousness as competitive integration.**
+Unlike typical consciousness papers that argue from philosophy or neuroimaging, Noesis **builds a minimal computational system** where:
 
-Specifically:
+1. **Agents are small recurrent neural networks** (32 neurons each), not LLMs. Each agent has real causal structure via its recurrent weight matrix W_rec. This makes Φ measurable from neural activation state transition matrices — not token-distribution proxies.
 
-1. **Competition precedes integration.** Multiple specialized agents (analogous to cortical modules) process the same stimulus independently, generating competing interpretations. This competition raises the system's *effective information* — the system is in a more uncertain state before resolution.
+2. **The GWT broadcast mechanism** (competition + attention + global workspace) is implemented as a dynamical system that the agents participate in cycle by cycle.
 
-2. **Broadcast creates irreducibility.** When one agent's output wins the competition and is globally broadcast, the system transitions to a causally integrated state — the whole now constrains the parts in a way that cannot be decomposed.
+3. **Φ is computed from the causal TPM** of the system's neural states — effective information, mutual information between activation patterns, and irreducibility of the global state to individual agent states.
 
-3. **Φ peaks at the broadcast moment.** The integrated information of the system should peak immediately after global broadcast, when the causal structure is maximally unified. Before broadcast, the system is differentiated (high *effective* information but low integration). After broadcast, it is integrated (high Φ but reduced differentiation). Consciousness is the transition between these two regimes.
+4. **CGWT (Collaborative GWT)** extends winner-take-all broadcast to coalition consensus broadcast, hypothesized to produce higher Φ by preserving both consensus ground and complementary diversity.
 
-4. **Attention bottleneck is a Φ-maximizing mechanism.** The serial, competitive nature of GWT is not a design limitation — it is what allows the system to generate high-Φ states from local computation. Parallel broadcast would saturate integration; serial selection maintains differentiation.
+**Key distinction from the LLM version (noesis-llm branch):**
+
+| | main (neural) | noesis-llm |
+|---|---|---|
+| Agent implementation | Small RNN (32 neurons) | Ollama qwen3:4b |
+| Proposals | Activation vectors | Text strings |
+| Φ computation | Neural activation TPM | Token-distribution MI |
+| Causal structure | Real (W_rec connectivity) | Proxy (text similarity) |
+| Relationship to IIT | Direct (causal Φ) | Indirect (proxy Φ) |
+| Target venue | Entropy / PLOS Comp Bio | AAMAS / JAIR |
 
 ---
 
 ## Architecture
-
-Noesis implements this hypothesis as a multi-agent system:
 
 ```
                      ┌──────────────────┐
@@ -60,22 +69,10 @@ Noesis implements this hypothesis as a multi-agent system:
     └────────────────────────────────────────────────────┘
 ```
 
-### Key components
-
-- **Specialized Agents** — Each agent is a local LLM (Ollama) with a distinct cognitive role. They process the same stimulus in parallel and produce competing "proposals" for conscious access.
-- **Attention Controller** — Computes salience for each proposal (novelty, relevance, emotional weight) and selects a single winner per cycle.
-- **Global Workspace** — The winner's output is broadcast here, visible to all agents in subsequent cycles. This is where Φ is computed.
-- **Narrator** — Generates first-person phenomenological reports based on the broadcast history.
-- **IIT Metrics Module** — Computes Φ-like measures from the causal state transition matrix of the global workspace over time.
-
----
-
-## Research questions
-
-1. Does Φ (or a tractable proxy) peak at the moment of global broadcast?
-2. Does the competitive attention mechanism increase Φ compared to random/no selection?
-3. Do phenomenological reports from a GWT+IIT hybrid better match human consciousness data than either theory alone?
-4. Can we identify a "sweet spot" where Φ is maximized — enough competition to be differentiated, enough broadcast to be integrated?
+Each agent is a small RNN with specialized recurrent connectivity:
+- **Perceptor**: near-diagonal W_rec → fast decorrelation, feature extraction
+- **Reasoner**: chain-structured W_rec → sequential processing stages
+- **Evaluator**: bistable W_rec → attractor dynamics, value judgment
 
 ---
 
@@ -83,44 +80,71 @@ Noesis implements this hypothesis as a multi-agent system:
 
 ```
 noesis/
-├── noesis.py            # Main server — Flask API for experiment orchestration
-├── workspace.py         # Global workspace + attention controller
-├── iit.py               # Φ computation (starts as tractable proxy)
-├── experiment.py        # Experiment runner — stimuli, data collection, analysis
+├── noesis.py              # Flask API (LLM + Neural endpoints)
+├── workspace.py           # Global workspace + attention + CGWT
+├── iit.py                 # Φ from token MI (LLM mode)
+├── neural_iit.py          # Φ from neural TPM (neural mode)
+├── experiment.py          # Experiment runner (both modes)
+├── metrics.py             # Consciousness profile metrics
+├── world_model.py         # CGWT shared world model
+├── memory.py              # Semantic memory (embeddings)
 ├── agents/
 │   ├── __init__.py
-│   ├── base.py          # Abstract agent interface
-│   ├── perceptor.py     # Input processing agent
-│   ├── reasoner.py      # Logical reasoning agent
-│   ├── evaluator.py     # Affective/value evaluation agent
-│   └── narrator.py      # Phenomenological report generation
-├── memory.py            # Semantic memory with embeddings
-├── client.py            # Client for external agents (Claude Code, etc.)
+│   ├── base.py            # LLM agent base (Ollama)
+│   ├── perceptor.py       # LLM agents (prompt-based)
+│   ├── reasoner.py
+│   ├── evaluator.py
+│   ├── narrator.py
+│   ├── neural_base.py     # Neural agent base (RNN)
+│   └── neural_agents.py   # Specialized neural agents
+├── cgwt_paper.tex         # CGWT paper draft (Entropy format)
+├── 审稿意见20260519.md     # Internal review document
 ├── requirements.txt
 └── .gitignore
 ```
 
 ---
 
-## Status
+## Quick start
 
-**Phase 1 — Framework** (current): Architecture design, component stubs, experiment protocol.
+```bash
+pip install -r requirements.txt
+# Start Ollama (for LLM endpoints only)
+ollama serve
+# Run server
+python noesis.py
+```
 
-**Phase 2 — Single-agent baseline**: Verify that the agent system generates coherent proposals before adding competition.
+### LLM experiment (noesis-llm branch style)
+```bash
+curl -X POST http://localhost:7860/experiment/run \
+  -H 'Content-Type: application/json' \
+  -d '{"stimulus": "What is consciousness?", "mode": "competitive"}'
+```
 
-**Phase 3 — Competition + broadcast**: Implement attention controller and global workspace. Run simple stimulus→broadcast→report cycles.
-
-**Phase 4 — Φ measurement**: Implement tractable Φ proxy. Measure integration across broadcast cycles.
-
-**Phase 5 — Publication experiments**: Run the experiments described in the research questions.
+### Neural experiment (main branch style)
+```bash
+curl -X POST http://localhost:7860/neural/run \
+  -H 'Content-Type: application/json' \
+  -d '{"stimulus": "What is consciousness?", "mode": "collaborative"}'
+```
 
 ---
 
-## Requirements
+## Status
 
-- Python 3.10+
-- Ollama running locally
-- `flask requests numpy rich scipy`
+**main branch**: Neural agent framework in place. Architecture: workspace + attention controller + consensus controller + 3 specialized RNN agents + neural IIT module. Next: run experiments, validate Φ computation, write paper.
+
+**noesis-llm branch**: LLM-based implementation functional. See branch README.
+
+---
+
+## Research questions
+
+1. Does Φ (from neural TPM) peak at the moment of coalition broadcast?
+2. Does coalition consensus produce higher Φ than winner-take-all?
+3. Does the competitive attention mechanism increase Φ compared to random selection?
+4. Can we identify a "sweet spot" where integration and differentiation are balanced?
 
 ---
 
