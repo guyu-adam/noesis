@@ -349,14 +349,10 @@ def phi_collaborative(
     if not proposals or not coalition_names:
         return phi_proxy(workspace_state, history, proposals)
 
-    coalition_proposals = {k: v for k, v in proposals.items() if k in coalition_names}
-    if not coalition_proposals:
-        return phi_proxy(workspace_state, history, proposals)
-
-    # Identical formula to phi_proxy, computed over coalition proposals only.
-    # This is the sole methodological difference: coalition joint output vs single winner.
-    # Same ruler for all modes ensures cross-mode comparison is statistically valid.
-    return phi_proxy(workspace_state, history, coalition_proposals)
+    # Pass ALL proposals — workspace content already encodes what was broadcast
+    # (the merged coalition output). Using the same proposal set as phi_proxy
+    # ensures the MI numerator is not artificially deflated by coalition size.
+    return phi_proxy(workspace_state, history, proposals)
 
 
 def phi_trace(phi_history: list[float]) -> dict:
