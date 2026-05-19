@@ -256,8 +256,8 @@ def neural_run():
     d = request.json or {}
     stimulus_text = d.get("stimulus", "").strip()
     mode = d.get("mode", "competitive")
-    n_neurons = d.get("n_neurons", 32)
-    n_input = d.get("n_input", 16)
+    n_neurons = d.get("n_neurons") or int(os.environ.get("NOESIS_N_NEURONS", "256"))
+    n_input = d.get("n_input") or int(os.environ.get("NOESIS_N_INPUT", "32"))
 
     if not stimulus_text:
         return jsonify({"error": "stimulus required"}), 400
@@ -372,33 +372,45 @@ if __name__ == "__main__":
     import logging
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
+    # Hardware-aware config
+    from config import get_config, _GPU as _HAS_GPU
+    cfg = get_config()
+    if _HAS_GPU:
+        gpu_info = cfg.summary()["gpu"]
+        gpu_line = f"[bold green]GPU:[/bold green] {gpu_info['name']} ({gpu_info['vram_mb']}MB VRAM)"
+    else:
+        gpu_line = "[bold yellow]GPU:[/bold yellow] none (CPU-only)"
+
+    n_default = int(os.environ.get("NOESIS_N_NEURONS", "256"))
+    n_agents_default = int(os.environ.get("NOESIS_N_AGENTS", "5"))
+
     threading.Thread(
         target=lambda: app.run(host="0.0.0.0", port=7860, threaded=True),
         daemon=True,
     ).start()
 
     console.print(Panel(
-        "[bold cyan]Noesis v0.2[/bold cyan]  ·  GWT–IIT Integration Framework\n\n"
-        "[bold]LLM Agent Endpoints (noesis-llm branch):[/bold]\n"
-        "  [cyan]POST /experiment/run[/cyan]       — run one cycle (LLM agents)\n"
-        "  [cyan]POST /experiment/batch[/cyan]     — run multiple stimuli\n"
-        "  [cyan]POST /experiment/compare[/cyan]   — full comparison experiment\n"
-        "  [cyan]POST /experiment/reset[/cyan]     — reset experiment state\n\n"
-        "[bold]Neural Agent Endpoints (main branch):[/bold]\n"
+        "[bold cyan]Noesis v0.3[/bold cyan]  ·  GWT–IIT Integration Framework\n\n"
+        f"  {gpu_line}\n"
+        f"  [bold]Neural:[/bold] {n_default} neurons/agent × {n_agents_default} agents "
+        f"= {n_default * n_agents_default} total\n"
+        f"  [bold]Backend:[/bold] {'CuPy GPU' if _HAS_GPU else 'NumPy CPU'}\n\n"
+        "[bold]Neural Endpoints (main branch):[/bold]\n"
         "  [cyan]POST /neural/run[/cyan]          — run one cycle (RNN, causal Phi)\n"
-        "  [cyan]POST /neural/compare[/cyan]      — comparison (RNN agents)\n"
+        "  [cyan]POST /neural/compare[/cyan]      — comparison (all modes)\n"
         "  [cyan]POST /neural/reset[/cyan]        — reset neural experiment\n\n"
+        "[bold]LLM Endpoints (legacy):[/bold]\n"
+        "  [cyan]POST /experiment/run[/cyan]       — run one cycle (LLM agents)\n"
+        "  [cyan]POST /experiment/compare[/cyan]   — full comparison experiment\n\n"
         "[bold]Shared:[/bold]\n"
         "  [cyan]GET  /status[/cyan]               — Phi trace + summary\n"
-        "  [cyan]GET  /profile[/cyan]              — consciousness profile trace\n"
-        "  [cyan]GET  /memory[/cyan]               — semantic memory view\n\n"
+        "  [cyan]GET  /profile[/cyan]              — consciousness profile trace\n\n"
         f"[bold]LLM Model:[/bold] {MODEL}\n"
-        "[bold]Neural:[/bold] RNN 32-neuron x 3 agents, causal TPM-based Phi\n"
-        "[dim]http://localhost:7860[/dim]",
+        "[dim]http://localhost:7860[/dim]\n\n"
+        "[dim]Set NOESIS_N_NEURONS, NOESIS_N_AGENTS, NOESIS_N_UNROLL env vars to scale[/dim]",
         border_style="cyan", title="[bold]Ready[/bold]"
     ))
     console.print("[green]Waiting for experiments...[/green]\n")
-    console.print("[dim]Tip: switch branch — main (neural/consciousness) / noesis-llm (LLM/multi-agent)[/dim]\n")
 
     while True:
         time.sleep(1)

@@ -342,14 +342,22 @@ def analyze_comparison(results: dict[str, list[dict]]) -> dict:
 _neural_agent_cache: dict = {}
 
 
-def _get_neural_agents(n_neurons: int = 32, n_input: int = 16):
-    """Initialize or retrieve neural agent instances."""
+def _get_neural_agents(n_neurons: int = None, n_input: int = None):
+    """Initialize or retrieve neural agent instances (5 agent types)."""
     if "perceptor" not in _neural_agent_cache:
-        from agents.neural_agents import NeuralPerceptor, NeuralReasoner, NeuralEvaluator, NeuralNarrator
+        n_neurons = n_neurons or int(os.environ.get("NOESIS_N_NEURONS", "256"))
+        n_input = n_input or int(os.environ.get("NOESIS_N_INPUT", "32"))
+
+        from agents.neural_agents import (
+            NeuralPerceptor, NeuralReasoner, NeuralEvaluator,
+            NeuralIntegrator, NeuralPredictor, NeuralNarrator,
+        )
 
         _neural_agent_cache["perceptor"] = NeuralPerceptor(n_neurons, n_input, seed=100)
         _neural_agent_cache["reasoner"] = NeuralReasoner(n_neurons, n_input, seed=200)
         _neural_agent_cache["evaluator"] = NeuralEvaluator(n_neurons, n_input, seed=300)
+        _neural_agent_cache["integrator"] = NeuralIntegrator(n_neurons, n_input, seed=400)
+        _neural_agent_cache["predictor"] = NeuralPredictor(n_neurons, n_input, seed=500)
         _neural_agent_cache["narrator"] = NeuralNarrator()
         _neural_agent_cache["n_neurons"] = n_neurons
         _neural_agent_cache["n_input"] = n_input
@@ -410,14 +418,14 @@ def run_neural_cycle(
 
     # ── Phase 2: Neural agents process stimulus ────────────────────────
     proposals = {}
-    agent_names = ["perceptor", "reasoner", "evaluator"]
+    agent_names = ["perceptor", "reasoner", "evaluator", "integrator", "predictor"]
 
     if mode == "single_agent":
         try:
             proposals["reasoner"] = agents["reasoner"].process(
                 stimulus_vec, workspace_context_vec
             )
-        except Exception as e:
+        except Exception:
             proposals["reasoner"] = np.zeros(n_neurons)
     else:
         for name in agent_names:
