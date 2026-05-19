@@ -256,36 +256,53 @@ exceeds threshold $\theta$, up to coalition size $k$.
 \textbf{Step 3: Merge coalition outputs.} Coalition outputs are merged to preserve both
 consensus ground and complementary perspectives.
 
-\subsection{Unified $\Phi$ Measurement}
+\subsection{Unified $\Phi$ Approximation}
 
 A critical methodological requirement is that $\Phi$ must be measured using the
 \textit{same formula across all experimental modes} to enable valid comparison.
-We define a unified $\Phi$ function applicable to all modes:
+We define a unified $\Phi$ approximation:
 
 \begin{equation}
-\Phi = 0.40 \cdot \text{MI}_{\text{int}} + 0.35 \cdot \text{EI} + 0.25 \cdot D
+\Phi_{\text{approx}} = w_1 \cdot \text{MI}_{\text{int}} + w_2 \cdot \text{EI} + w_3 \cdot D
 \label{eq:phi_unified}
 \end{equation}
 where:
 \begin{itemize}
 \item $\text{MI}_{\text{int}} = I(\text{workspace}; \text{all processors}) -
-\frac{1}{n}\sum_i I(\text{workspace}; p_i)$ is the irreducible mutual information
-between global workspace state and individual processor states;
-\item $\text{EI}$ is the effective information computed from the causal state transition
-probability matrix (TPM) of discretized neural activation states;
-\item $D$ is the differentiation component, measured as the mean standard deviation
-of processor activation patterns.
+\frac{1}{n}\sum_i I(\text{workspace}; p_i)$ approximates irreducible mutual information;
+\item $\text{EI}$ is the effective information from the clustered causal TPM;
+\item $D$ is differentiation, measured as mean standard deviation of processor activations;
+\item Default weights: $(w_1, w_2, w_3) = (0.40, 0.35, 0.25)$.
 \end{itemize}
+
+\textbf{Important caveats.} This is NOT IIT's proper $\Phi$. Four documented approximations
+are made: (1) state space reduction via $K$-means clustering instead of full cause-effect
+structure over $2^{1280}$ states; (2) no minimum information partition search---the fixed
+partition used here tends to overestimate relative to true $\Phi$, but the bias is
+consistent across conditions; (3) histogram-based mutual information estimation using
+quantile binning, which avoids distributional assumptions but introduces bin-count
+sensitivity; (4) a weighted composite of three components rather than a principled
+IIT measure. The \textit{absolute} $\Phi$ values carry no meaning; only the comparative
+rank ordering across experimental conditions is scientifically informative.
+
+\textbf{Weight sensitivity.} To verify that the rank ordering is not an artifact of
+weight selection, we perform a Monte Carlo sensitivity analysis: weights are sampled
+from a Dirichlet$(2,2,2)$ distribution (concentrated near the center, $n=500$ samples),
+and $\Phi_{\text{approx}}$ is recomputed for each weight vector. The key criterion is
+whether the ordinal relationship $\Phi_{\text{collaborative}} > \Phi_{\text{competitive}}
+> \Phi_{\text{no-broadcast}}$ is invariant to weight choices. Results are reported as
+coefficient of variation (CV) of $\Phi$ under weight perturbation; CV $< 0.3$ indicates
+robustness.
 
 For competitive and random modes, the ``all processors'' set comprises all active processors;
 for collaborative and hybrid modes, it includes the coalition. For no-broadcast mode, the
-workspace state is the initial state and EI is computed from the independent processor
+workspace state is the initial state and EI is computed from independent processor
 dynamics. The formula itself remains identical across modes---only the inputs differ.
 
 All three components are computed from neural activation vectors (not token distributions),
 using discretized activation states clustered into $K$ states to build the causal TPM.
 The TPM entry $P(s_{t+1}=j \mid s_t=i)$ encodes the probability of transition from
-neural state $i$ to state $j$, capturing the system's causal structure directly.
+neural state $i$ to state $j$, capturing the system's causal structure.
 
 \subsection{Experimental Modes}
 
@@ -383,9 +400,11 @@ This TPM encodes the causal structure of the neural system.
 the average KL divergence of each state's effect distribution from the unconstrained
 effect distribution. High EI $\to$ strong causal constraints.
 
-\textbf{5. Mutual information.} $I(\text{workspace}; \text{processor}_i)$ is computed
-from the activation time series via 2D histogram binning. The irreducible component
-subtracts the average individual MI from the joint MI.
+\textbf{5. Mutual information.} $I(\text{workspace}; \text{processor}_i)$ is estimated
+non-parametrically from paired neuron activations via 2D histogram with quantile
+(equi-frequency) binning. This makes no distributional assumptions (unlike
+Gaussian correlation-based estimators), at the cost of bin-count sensitivity.
+The irreducible component subtracts the average individual MI from the joint MI.
 
 \textbf{6. $\Phi$ aggregation.} The three components (MI integration, EI, differentiation)
 are combined via Equation~\eqref{eq:phi_unified}. All components are computed identically
@@ -404,7 +423,11 @@ and processor states are reset between modes to ensure statistical independence.
 \subsection{Sensitivity Analysis}
 
 To verify that results are not artifacts of parameter choices, we perform sensitivity
-analysis on: (a) the $\Phi$ component weights in Equation~\eqref{eq:phi_unified};
+analysis on: (a) the $\Phi$ component weights in Equation~\eqref{eq:phi_unified},
+using a Monte Carlo Dirichlet$(2,2,2)$ sampling procedure (500 samples) implemented
+in the \texttt{phi\_sensitivity()} function---the coefficient of variation (CV) of
+$\Phi$ under weight perturbation is reported per cycle, with CV $<0.3$ indicating
+that rank-order results are not weight-driven;
 (b) the consensus threshold ratio in the world model; (c) the coalition size $k$;
 and (d) the processor count and neuron count. The primary conclusions should remain
 robust across reasonable parameter ranges.

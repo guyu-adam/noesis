@@ -399,7 +399,8 @@ def run_neural_cycle(
     """
     import numpy as np
     from neural_iit import (
-        neural_phi, neural_information_geometry, cluster_activation_states,
+        neural_phi, neural_phi_approx, phi_sensitivity,
+        neural_information_geometry, cluster_activation_states,
     )
 
     processors = _get_neural_processors(n_neurons, n_input)
@@ -550,6 +551,15 @@ def run_neural_cycle(
     processor_stds = [float(np.std(p)) for p in proposals.values() if len(p) > 0]
     complexity = float(np.mean(processor_stds)) if processor_stds else 0.0
 
+    # ── Phase 8: Φ weight sensitivity ─────────────────────────────────
+    try:
+        sensitivity = phi_sensitivity(
+            winner_vec, {k: v for k, v in proposals.items()},
+            workspace.history if hasattr(workspace, 'history') else [],
+        )
+    except Exception:
+        sensitivity = {"error": "sensitivity_analysis_failed"}
+
     result = {
         "stimulus_vec_shape": list(stimulus_vec.shape),
         "proposals": {k: _neural_vec_summary(v) for k, v in proposals.items()},
@@ -561,6 +571,7 @@ def run_neural_cycle(
         "phi_before": phi_before,
         "phi_after": phi_after,
         "phi_delta": round(phi_after - phi_before, 6),
+        "phi_sensitivity": sensitivity,
         "fisher_trace": geo_metrics["fisher_trace"],
         "complexity": round(complexity, 6),
         "narrative": narrative,

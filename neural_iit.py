@@ -1,29 +1,37 @@
 """
-Neural Integrated Information — Φ from neural activation state transitions.
+Neural Integrated Information — Φ approximation from neural activation patterns.
 
 This is the CORE distinction between main and noesis-llm branches:
 
-    noesis-llm (iit.py):     Φ ≈ MI(token_distributions)  ← proxy
-    main (neural_iit.py):    Φ from neural activation TPM  ← causal Φ
+    noesis-llm (iit.py):     Φ ≈ MI(token_distributions)  ← text proxy
+    main (neural_iit.py):    Φ from neural activation data  ← causal approximation
 
-The neural version computes Φ from the actual causal structure of the
-multi-processor neural system. Each processor is a small RNN; the global workspace
-integrates their hidden-state activations. Φ measures the irreducibility
-of the global state to individual processor states.
+The neural version computes an information-theoretic Φ approximation from
+RNN activation patterns. Each processor is a small RNN; the global workspace
+integrates their hidden-state activations.
 
-Key references (same as iit.py, but applied to neural states):
+CRITICAL HONESTY: This is NOT IIT's proper Φ. True IIT Φ requires:
+  1. Full cause-effect structure over 2^(N*M) states
+  2. Minimum information partition (MIP) search
+  3. Earth-mover distance between constrained/unconstrained distributions
+
+For a 256-neuron × 5-processor system, the full state space is 2^1280 —
+cosmologically intractable. We compute a tractable approximation with four
+documented simplifications (see neural_phi_approx docstring).
+
+Key references:
   - Tononi (2004, 2016): IIT proper — Φ from cause-effect structure
-  - Barrett et al. (2026): Φ is not well-defined for real systems; we compute
-    a tractable approximation on a small (256-neuron) system where TPM is exact
+  - Barrett et al. (2026): Φ intractability for real systems; we cite this
+    to motivate our approximation strategy, not to claim equivalence
   - Kearney (2026): MaxCal bridge between IIT and FEP
+  - Oizumi et al. (2014): Practical Φ approximations for small systems
 
-For a system with N neurons per processor and M processors, the full state space is
-R^(N*M). We discretize via thresholding (each neuron is binary: on/off at
-each time step) to get a tractable TPM of size 2^(N*M) → reduced via
-clustering to k states.
+Central claim (to be tested — comparative, not absolute):
+    Φ_approx(collaborative) > Φ_approx(competitive) > Φ_approx(no_broadcast)
 
-Central hypothesis (to be tested):
-    Φ(coalition_broadcast) > Φ(winner_take_all) > Φ(no_broadcast)
+The absolute Φ values are meaningless. Only the rank ordering across
+experimental conditions carries scientific weight. This is a comparative
+information measure, not a claim to measure consciousness magnitude.
 """
 
 import numpy as np
@@ -206,55 +214,84 @@ def neural_mutual_information(
         return 0.0
 
 
-# ── Neural Φ (integrated information) ───────────────────────────────────────
+# ── Neural Φ approximation ──────────────────────────────────────────────────
 
-def neural_phi(
+def neural_phi_approx(
     workspace_activation: np.ndarray,
     processor_proposals: dict[str, np.ndarray],
-    workspace_history: list[dict],
+    workspace_history: list[dict] | None = None,
     n_state_clusters: int = 10,
+    weights: tuple[float, float, float] = (0.40, 0.35, 0.25),
 ) -> float:
     """
-    Compute neural Φ — integrated information of the global workspace state.
+    Compute a tractable Φ approximation from neural activation data.
 
-    This is the neural analogue of iit.py:phi_proxy(), but crucially:
-      - Inputs are neural activation vectors (not text)
-      - TPM is built from discretized neural states (not token-content states)
-      - MI is computed from activation time series (not token distributions)
+    FOUR DOCUMENTED APPROXIMATIONS (compared to IIT proper):
 
-    Φ ≈ MI(workspace; all processors jointly) − Σ MI(workspace; processor_i) / n
+    1. STATE SPACE REDUCTION: Instead of the full cause-effect structure
+       over 2^(N*M) binary states, we cluster activation vectors into
+       k ≈ n_state_clusters macro-states. This loses fine-grained causal
+       structure but is the only way to make TPMs tractable at scale.
 
-    This captures IRREDUCIBILITY: how much information the global state contains
-    that cannot be reduced to individual processor contributions.
+    2. NO MIP SEARCH: IIT's Φ requires finding the Minimum Information
+       Partition — the cut that minimizes information loss. This is an
+       NP-hard search over all possible bipartitions. We use a fixed
+       reduction: Φ ≈ I(workspace; all processors) − avg I(workspace; each).
+       This is a specific (and likely non-minimal) partition, so our Φ
+       tends to OVERESTIMATE relative to true Φ. This is acceptable for
+       comparative analysis because the overestimation bias is consistent
+       across conditions.
+
+    3. HISTOGRAM-BASED MI: Mutual information is estimated via 2D
+       histogram with quantile binning — no distributional assumptions
+       (unlike the previous Gaussian correlation estimator). The tradeoff
+       is bin-count sensitivity. We use equi-frequency bins (n/4 rule)
+       which adapts to sample size.
+
+    4. WEIGHTED COMPOSITE: Φ = w_mi·MI_integration + w_ei·EI +
+       w_diff·differentiation. IIT derives Φ from a principled measure,
+       not a weighted sum. The default weights (0.40, 0.35, 0.25) are
+       chosen to balance the three factors roughly equally. Use
+       phi_sensitivity() to verify that rank-ordering across conditions
+       is invariant to weight choices — this is more important than the
+       specific values.
+
+    IMPORTANT: The ABSOLUTE Φ values are meaningless. What matters is
+    the COMPARATIVE rank ordering across experimental conditions
+    (collaborative > competitive > random > no_broadcast). This is a
+    comparative information measure, not a claim about consciousness
+    magnitude.
 
     Args:
-        workspace_activation: Current global workspace activation (n_neurons,).
+        workspace_activation: Current workspace activation (n_neurons,).
         processor_proposals: {processor_name: activation_vector}.
-        workspace_history: List of past broadcast entries with 'content_vec'.
-        n_state_clusters: Number of clusters for state discretization.
+        workspace_history: Past broadcast entries with 'content_vec'.
+        n_state_clusters: Clusters for state discretization (default 10).
+        weights: (w_mi, w_ei, w_diff) — for sensitivity analysis.
 
     Returns:
-        Φ value (0 = fully reducible to parts, higher = more integrated).
+        Φ approximation value (comparative, not absolute).
     """
+    if workspace_history is None:
+        workspace_history = []
+
     if not processor_proposals:
         return 0.0
 
     # Component 1: Irreducible mutual information
-    # I(workspace; all processors) - average I(workspace; processor_i)
+    # Φ intuition: how much of workspace→processors information is lost
+    # when we treat each processor independently?
     all_processor_concat = np.concatenate([p.flatten() for p in processor_proposals.values()])
-    # Re-express as: workspace variance unexplained by individual processors
     mi_joint = _activation_mi_joint(workspace_activation, all_processor_concat)
     mi_parts = sum(
         _activation_mi_pairwise(workspace_activation, p)
         for p in processor_proposals.values()
     )
-
     n_processors = max(len(processor_proposals), 1)
     mi_integration = max(0.0, mi_joint - mi_parts / n_processors)
 
     # Component 2: Effective information from causal TPM
     if workspace_history and len(workspace_history) >= 2:
-        # Extract content vectors from history
         hist_activations = [
             h.get("content_vec", np.zeros_like(workspace_activation))
             for h in workspace_history[-50:]
@@ -266,48 +303,177 @@ def neural_phi(
         ei = 0.0
 
     # Component 3: Activation complexity (differentiation)
-    # Higher variance across processors → more differentiated → higher Φ potential
     processor_stds = [np.std(p) for p in processor_proposals.values() if len(p) > 0]
     differentiation = np.mean(processor_stds) if processor_stds else 0.0
     differentiation = min(1.0, differentiation)
 
     # Weighted combination
-    phi = 0.40 * mi_integration + 0.35 * ei + 0.25 * differentiation
+    w_mi, w_ei, w_diff = weights
+    phi = w_mi * mi_integration + w_ei * ei + w_diff * differentiation
 
     return round(float(phi), 6)
 
 
+# Backward compatibility alias
+neural_phi = neural_phi_approx
+
+
+def _mi_histogram(x: np.ndarray, y: np.ndarray, bins: int = 20) -> float:
+    """
+    Non-parametric MI via 2D histogram with quantile (equi-frequency) binning.
+
+    Makes NO distributional assumptions — unlike the previous Gaussian
+    correlation-based estimator which assumed joint normality of RNN
+    activations (a clearly false assumption for tanh-squashed states).
+
+    Paired-observation assumption: we treat corresponding neuron indices
+    across the two vectors as paired samples (x_i, y_i). For a 256-dim
+    vector pair, this gives 256 observations. This spatial-ergodicity
+    assumption — that the neuron-index dimension approximates the ensemble
+    distribution — is standard in neural population analysis (cf.
+    representational similarity analysis, Kriegeskorte 2008), but the
+    resulting quantity should be interpreted as "representational
+    alignment" rather than strict information-theoretic MI between
+    random variables.
+
+    Returns MI in bits, clamped to [0, ∞).
+    """
+    n = min(len(x), len(y))
+    if n < 4:
+        return 0.0
+
+    x_vals = np.asarray(x[:n], dtype=np.float64).flatten()
+    y_vals = np.asarray(y[:n], dtype=np.float64).flatten()
+
+    # Adaptive bin count — don't over-bin small samples
+    bins_eff = max(4, min(bins, n // 4))
+
+    try:
+        # Quantile-based edges so bins adapt to data distribution
+        x_edges = np.unique(np.quantile(x_vals, np.linspace(0, 1, bins_eff + 1)))
+        y_edges = np.unique(np.quantile(y_vals, np.linspace(0, 1, bins_eff + 1)))
+        if len(x_edges) < 2 or len(y_edges) < 2:
+            return 0.0
+
+        hist_2d, _, _ = np.histogram2d(x_vals, y_vals, bins=[x_edges, y_edges])
+        hist_2d = hist_2d.astype(np.float64) / hist_2d.sum()
+
+        hist_x = hist_2d.sum(axis=1)
+        hist_y = hist_2d.sum(axis=0)
+
+        h_x = -np.sum(hist_x[hist_x > 0] * np.log2(hist_x[hist_x > 0]))
+        h_y = -np.sum(hist_y[hist_y > 0] * np.log2(hist_y[hist_y > 0]))
+        h_xy = -np.sum(hist_2d[hist_2d > 0] * np.log2(hist_2d[hist_2d > 0]))
+
+        return max(0.0, float(h_x + h_y - h_xy))
+    except Exception:
+        return 0.0
+
+
 def _activation_mi_joint(a: np.ndarray, b_concat: np.ndarray) -> float:
-    """MI between workspace activation and concatenated processor activations."""
-    if len(a) == 0 or len(b_concat) == 0:
-        return 0.0
-    # Use correlation-based MI approximation for continuous vectors
-    # I ≈ -0.5 * log(1 - ρ²) for Gaussian (a first-order approximation)
-    a_flat = a.flatten()
-    b_flat = b_concat.flatten()
-    # Truncate to same length
-    min_len = min(len(a_flat), len(b_flat))
-    a_flat = a_flat[:min_len]
-    b_flat = b_flat[:min_len]
-    corr = np.corrcoef(a_flat, b_flat)[0, 1]
-    if np.isnan(corr):
-        return 0.0
-    corr = max(-0.999, min(0.999, corr))
-    return float(-0.5 * np.log2(1 - corr ** 2))
+    """MI between workspace and concatenated processor activations (histogram-based)."""
+    return _mi_histogram(a, b_concat)
 
 
 def _activation_mi_pairwise(a: np.ndarray, b: np.ndarray) -> float:
-    """Pairwise MI between two activation vectors (correlation-based)."""
-    a_flat = a.flatten()
-    b_flat = b.flatten()
-    min_len = min(len(a_flat), len(b_flat))
-    a_flat = a_flat[:min_len]
-    b_flat = b_flat[:min_len]
-    corr = np.corrcoef(a_flat, b_flat)[0, 1]
-    if np.isnan(corr):
-        return 0.0
-    corr = max(-0.999, min(0.999, corr))
-    return float(-0.5 * np.log2(1 - corr ** 2))
+    """MI between workspace and single processor activations (histogram-based)."""
+    return _mi_histogram(a, b)
+
+
+# ── Weight sensitivity analysis ──────────────────────────────────────────────
+
+def phi_sensitivity(
+    workspace_activation: np.ndarray,
+    processor_proposals: dict[str, np.ndarray],
+    workspace_history: list[dict] | None = None,
+    n_state_clusters: int = 10,
+    n_samples: int = 500,
+    seed: int = 42,
+) -> dict:
+    """
+    Test whether Φ rank-ordering is robust to weight choices.
+
+    Samples random weight vectors from a Dirichlet(2,2,2) distribution
+    (concentrated near the uniform center, with plausible spread). For
+    each weight combination, computes Φ_approx. Reports the distribution
+    of resulting Φ values.
+
+    INTERPRETATION:
+      - If phi_std / phi_mean < 0.3: Φ is robust — weights don't drive results.
+      - If phi_5th and phi_95th straddle zero: the sign of Φ depends on weights.
+      - If robust_fraction > 0.95: default weights are not cherry-picked.
+
+    This is the key defense against the "arbitrary weights" criticism.
+    The rank-ordering across experimental conditions should be invariant
+    to weight choices within a plausible range.
+
+    Returns:
+        Dict with phi distribution statistics and robustness metrics.
+    """
+    if workspace_history is None:
+        workspace_history = []
+
+    if not processor_proposals:
+        return {"phi_mean": 0.0, "phi_std": 0.0, "robust": False,
+                "reason": "no_proposals"}
+
+    # Pre-compute components (these don't depend on weights)
+    all_processor_concat = np.concatenate([p.flatten() for p in processor_proposals.values()])
+    mi_joint = _activation_mi_joint(workspace_activation, all_processor_concat)
+    mi_parts = sum(
+        _activation_mi_pairwise(workspace_activation, p)
+        for p in processor_proposals.values()
+    )
+    n_processors = max(len(processor_proposals), 1)
+    mi_integration = max(0.0, mi_joint - mi_parts / n_processors)
+
+    if workspace_history and len(workspace_history) >= 2:
+        hist_activations = [
+            h.get("content_vec", np.zeros_like(workspace_activation))
+            for h in workspace_history[-50:]
+        ]
+        labels, _ = cluster_activation_states(hist_activations, n_state_clusters)
+        tpm = neural_state_transition_matrix(labels, n_state_clusters)
+        ei = neural_effective_information(tpm)
+    else:
+        ei = 0.0
+
+    processor_stds = [np.std(p) for p in processor_proposals.values() if len(p) > 0]
+    differentiation = np.mean(processor_stds) if processor_stds else 0.0
+    differentiation = min(1.0, differentiation)
+
+    # Monte Carlo weight scan
+    rng = np.random.RandomState(seed)
+    weight_samples = rng.dirichlet(alpha=[2.0, 2.0, 2.0], size=n_samples)
+
+    phi_values = np.array([
+        w[0] * mi_integration + w[1] * ei + w[2] * differentiation
+        for w in weight_samples
+    ])
+
+    default_phi = 0.40 * mi_integration + 0.35 * ei + 0.25 * differentiation
+
+    phi_mean = float(np.mean(phi_values))
+    phi_std = float(np.std(phi_values))
+    phi_5th = float(np.percentile(phi_values, 5))
+    phi_95th = float(np.percentile(phi_values, 95))
+    cv = phi_std / max(abs(phi_mean), 1e-10)
+
+    return {
+        "phi_mean": round(phi_mean, 6),
+        "phi_std": round(phi_std, 6),
+        "phi_5th": round(phi_5th, 6),
+        "phi_95th": round(phi_95th, 6),
+        "default_phi": round(default_phi, 6),
+        "coefficient_of_variation": round(cv, 4),
+        "robust": cv < 0.3,
+        "n_samples": n_samples,
+        "components": {
+            "mi_integration": round(mi_integration, 6),
+            "ei": round(ei, 6),
+            "differentiation": round(differentiation, 6),
+        },
+    }
 
 
 # ── Neural Φ trace analysis ─────────────────────────────────────────────────

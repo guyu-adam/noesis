@@ -18,6 +18,8 @@ from neural_iit import (
     neural_effective_information,
     neural_mutual_information,
     neural_phi,
+    neural_phi_approx,
+    phi_sensitivity,
     neural_phi_trace,
     neural_information_geometry,
 )
@@ -188,3 +190,54 @@ def test_neural_information_geometry():
     assert "fisher_trace" in result
     assert "complexity" in result
     assert result["fisher_trace"] >= 0.0
+
+
+# ── Φ sensitivity analysis ───────────────────────────────────────────
+
+def test_phi_sensitivity_no_proposals():
+    """Sensitivity analysis with no proposals should return not-robust."""
+    result = phi_sensitivity(np.random.randn(16), {})
+    assert result["robust"] is False
+    assert result["phi_mean"] == 0.0
+
+
+def test_phi_sensitivity_single_processor():
+    """Sensitivity analysis should return valid distribution stats."""
+    result = phi_sensitivity(
+        np.random.randn(32),
+        {"p": np.random.randn(32)},
+        seed=42,
+    )
+    assert "phi_mean" in result
+    assert "phi_std" in result
+    assert "coefficient_of_variation" in result
+    assert "components" in result
+    assert result["n_samples"] == 500
+
+
+def test_phi_sensitivity_deterministic():
+    """Same seed should produce identical sensitivity results."""
+    vec = np.random.randn(32)
+    props = {"a": np.random.randn(32)}
+    r1 = phi_sensitivity(vec, props, seed=42)
+    r2 = phi_sensitivity(vec, props, seed=42)
+    assert r1["phi_mean"] == r2["phi_mean"]
+    assert r1["phi_std"] == r2["phi_std"]
+
+
+def test_neural_phi_approx_alias():
+    """neural_phi should be the same function as neural_phi_approx."""
+    assert neural_phi is neural_phi_approx
+
+
+def test_phi_approx_with_custom_weights():
+    """Custom weights should affect the result."""
+    vec = np.random.randn(16)
+    props = {"a": np.random.randn(16)}
+    phi_default = neural_phi_approx(vec, props)
+    phi_custom = neural_phi_approx(vec, props, weights=(0.6, 0.3, 0.1))
+    # Different weights may give different results (not guaranteed, but check it runs)
+    assert isinstance(phi_default, float)
+    assert isinstance(phi_custom, float)
+    assert phi_default >= 0.0
+    assert phi_custom >= 0.0
