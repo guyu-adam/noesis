@@ -59,8 +59,9 @@ def _default_neurons() -> int:
     return 64
 
 
-def _default_agents() -> int:
-    return int(os.environ.get("NOESIS_N_AGENTS", "5"))
+def _default_processors() -> int:
+    return int(os.environ.get("NOESIS_N_PROCESSORS",
+                              os.environ.get("NOESIS_N_AGENTS", "5")))
 
 
 def _default_unroll() -> int:
@@ -82,7 +83,7 @@ class Config:
         self.n_neurons: int = _default_neurons()
         self.n_input: int = int(os.environ.get("NOESIS_N_INPUT", "32"))
         self.n_unroll: int = _default_unroll()
-        self.n_agents: int = _default_agents()
+        self.n_processors: int = _default_processors()
         self.batch_size: int = _default_batch()
         self.noise_std: float = float(os.environ.get("NOESIS_NOISE", "0.01"))
         self.max_history: int = int(os.environ.get("NOESIS_MAX_HISTORY", "500"))
@@ -91,8 +92,8 @@ class Config:
         self.gpu: bool = _GPU_AVAILABLE
 
         # Derived
-        self.total_neurons = self.n_neurons * self.n_agents
-        self.weights_per_agent = self.n_neurons * self.n_neurons + self.n_neurons * self.n_input
+        self.total_neurons = self.n_neurons * self.n_processors
+        self.weights_per_processor = self.n_neurons * self.n_neurons + self.n_neurons * self.n_input
 
     def summary(self) -> dict:
         return {
@@ -100,10 +101,10 @@ class Config:
             "n_neurons": self.n_neurons,
             "n_input": self.n_input,
             "n_unroll": self.n_unroll,
-            "n_agents": self.n_agents,
+            "n_processors": self.n_processors,
             "batch_size": self.batch_size,
             "total_neurons": self.total_neurons,
-            "weights_per_agent": self.weights_per_agent,
+            "weights_per_processor": self.weights_per_processor,
             "dtype": self.dtype,
         }
 
@@ -115,7 +116,7 @@ class Config:
             print(f"GPU: {gpu.get('name', '?')} ({gpu.get('vram_mb', 0)}MB VRAM)")
         else:
             print(f"GPU: none (CPU-only)")
-        print(f"Neurons: {info['n_neurons']}/agent × {info['n_agents']} agents = {info['total_neurons']} total")
+        print(f"Neurons: {info['n_neurons']}/processor × {info['n_processors']} processors = {info['total_neurons']} total")
         print(f"Input dim: {info['n_input']}, unroll steps: {info['n_unroll']}")
         print(f"Batch size: {info['batch_size']}")
         print(f"FP precision: {info['dtype']}")

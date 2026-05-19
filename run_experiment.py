@@ -20,7 +20,7 @@ STIMULI = [
     "How does memory influence the quality of conscious experience?",
     "Is the global workspace a necessary condition for consciousness?",
     "What role does prediction error play in conscious perception?",
-    "Can multiple agents jointly produce a unified conscious state?",
+    "Can multiple processors jointly produce a unified conscious state?",
 ]
 
 MODEL = "qwen3.5:4b"

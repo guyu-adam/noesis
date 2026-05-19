@@ -1,7 +1,7 @@
 """
-Collaborative World Model — shared predictive representation built jointly by all agents.
+Collaborative World Model — shared predictive representation built jointly by all processors.
 
-In the Collaborative Global Workspace Theory (CGWT), agents do not merely compete
+In the Collaborative Global Workspace Theory (CGWT), processors do not merely compete
 for broadcast access. They collectively maintain a world model: a shared, evolving
 representation of the stimulus environment that serves as common ground for
 consensus-building before broadcast.
@@ -10,13 +10,13 @@ Theoretical grounding:
   - Classic GWT (Baars 1988): global workspace as shared "blackboard"
   - Predictive coding (Friston 2010): the brain as a hierarchical prediction machine
   - CGWT extension (this work): the workspace also hosts a collaboratively updated
-    world model that reduces prediction error across all agents simultaneously.
+    world model that reduces prediction error across all processors simultaneously.
 
 The world model records:
   1. Stimulus history (what has been observed)
-  2. Prediction residuals per agent (who was surprised, and by how much)
-  3. Consensus map (which concepts all agents agree on)
-  4. Shared bag-of-words representation (averaged across all agent proposals)
+  2. Prediction residuals per processor (who was surprised, and by how much)
+  3. Consensus map (which concepts all processors agree on)
+  4. Shared bag-of-words representation (averaged across all processor proposals)
 """
 
 import threading
@@ -27,10 +27,10 @@ from typing import Optional
 
 class WorldModel:
     """
-    A shared predictive model maintained collaboratively by all workspace agents.
+    A shared predictive model maintained collaboratively by all workspace processors.
 
     Unlike the SemanticMemory (which stores broadcast history), WorldModel
-    tracks the collective epistemic state of the agent coalition: what they
+    tracks the collective epistemic state of the processor coalition: what they
     jointly predict, where they disagree, and how surprised they are.
 
     This is the key structural difference from standard GWT:
@@ -38,7 +38,7 @@ class WorldModel:
       CGWT    -> coalition's consensus representation enters workspace,
                 grounded in shared world model
 
-    On the first cycle (cold start), all agents have consensus_score=0.5 and
+    On the first cycle (cold start), all processors have consensus_score=0.5 and
     prediction_error=0.5 — there is no prior to differentiate them. The selection
     defaults to intensity-based ranking. This is expected behaviour (no prior =
     equal weighting) but means early cycles have higher noise. After ~3 cycles
@@ -49,7 +49,7 @@ class WorldModel:
                  max_stimulus_history: int = 50, max_prediction_history: int = 20,
                  prune_interval: int = 10):
         self.stimulus_history: list[str] = []
-        self.agent_predictions: dict[str, list[str]] = defaultdict(list)
+        self.processor_predictions: dict[str, list[str]] = defaultdict(list)
         self.consensus_concepts: Counter = Counter()
         self.disagreement_map: dict[str, float] = {}
         self._world_representation: list[float] = []
@@ -63,11 +63,11 @@ class WorldModel:
 
     def update(self, stimulus: str, proposals: dict[str, str]) -> dict:
         """
-        Update the world model after agents have processed a stimulus.
+        Update the world model after processors have processed a stimulus.
 
         Args:
             stimulus: The current stimulus.
-            proposals: {agent_name: agent_output} from all agents.
+            proposals: {processor_name: processor_output} from all processors.
 
         Returns:
             World model update summary (used in consensus scoring).
@@ -78,25 +78,25 @@ class WorldModel:
             if len(self.stimulus_history) > self.max_stimulus_history:
                 self.stimulus_history = self.stimulus_history[-self.max_stimulus_history:]
 
-            # Record each agent's prediction
+            # Record each processor's prediction
             for name, content in proposals.items():
-                self.agent_predictions[name].append(content)
-                if len(self.agent_predictions[name]) > self.max_prediction_history:
-                    self.agent_predictions[name] = self.agent_predictions[name][-self.max_prediction_history:]
+                self.processor_predictions[name].append(content)
+                if len(self.processor_predictions[name]) > self.max_prediction_history:
+                    self.processor_predictions[name] = self.processor_predictions[name][-self.max_prediction_history:]
 
             # Build consensus concept map: tokens that appear in most proposals
             all_tokens = []
-            per_agent_tokens = {}
+            per_processor_tokens = {}
             for name, content in proposals.items():
                 tokens = set(content.lower().split())
-                per_agent_tokens[name] = tokens
+                per_processor_tokens[name] = tokens
                 all_tokens.extend(tokens)
 
             token_counts = Counter(all_tokens)
-            n_agents = max(len(proposals), 1)
+            n_processors = max(len(proposals), 1)
 
-            # Concepts endorsed by majority of agents
-            consensus_threshold = n_agents * self.consensus_threshold_ratio
+            # Concepts endorsed by majority of processors
+            consensus_threshold = n_processors * self.consensus_threshold_ratio
             new_consensus = {tok for tok, cnt in token_counts.items()
                              if cnt >= consensus_threshold and len(tok) > 3}
             self.consensus_concepts.update(new_consensus)
@@ -107,10 +107,10 @@ class WorldModel:
                 for tok in stale:
                     del self.consensus_concepts[tok]
 
-            # Disagreement: tokens unique to one agent (high idiosyncrasy)
-            for name, tokens in per_agent_tokens.items():
+            # Disagreement: tokens unique to one processor (high idiosyncrasy)
+            for name, tokens in per_processor_tokens.items():
                 others = set()
-                for other_name, other_tokens in per_agent_tokens.items():
+                for other_name, other_tokens in per_processor_tokens.items():
                     if other_name != name:
                         others |= other_tokens
                 unique = tokens - others
@@ -125,7 +125,7 @@ class WorldModel:
                 "cycle": self._cycle,
                 "consensus_concepts": len(new_consensus),
                 "mean_disagreement": (
-                    sum(self.disagreement_map.values()) / n_agents
+                    sum(self.disagreement_map.values()) / n_processors
                     if self.disagreement_map else 0.0
                 ),
             }
@@ -153,15 +153,15 @@ class WorldModel:
                 return 0.5
             return min(1.0, weighted_hits / max_possible)
 
-    def get_prediction_error(self, agent_name: str, content: str) -> float:
+    def get_prediction_error(self, processor_name: str, content: str) -> float:
         """
-        Estimate prediction error for an agent's output relative to its history.
+        Estimate prediction error for a processor's output relative to its history.
 
-        High error -> agent was surprised -> content is novel -> higher information value.
+        High error -> processor was surprised -> content is novel -> higher information value.
         Mirrors the free-energy principle: conscious access is triggered by prediction errors.
         """
         with self._lock:
-            history = self.agent_predictions.get(agent_name, [])
+            history = self.processor_predictions.get(processor_name, [])
             if not history:
                 return 0.5
 
@@ -187,7 +187,7 @@ class WorldModel:
                 "top_consensus_concepts": [
                     tok for tok, _ in self.consensus_concepts.most_common(10)
                 ],
-                "agent_disagreement": dict(self.disagreement_map),
+                "processor_disagreement": dict(self.disagreement_map),
                 "world_representation_dim": len(self._world_representation),
             }
 

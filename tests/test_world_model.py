@@ -19,7 +19,7 @@ def test_get_consensus_score_empty():
 def test_get_consensus_score_empty_content():
     """Empty content should return neutral 0.5 even with populated model."""
     wm = WorldModel()
-    wm.update("stimulus", {"agent_a": "hello world", "agent_b": "hello consensus"})
+    wm.update("stimulus", {"processor_a": "hello world", "processor_b": "hello consensus"})
     score = wm.get_consensus_score("")
     assert score == 0.5
 
@@ -45,23 +45,23 @@ def test_get_consensus_score_no_match():
 
 
 def test_get_prediction_error_no_history():
-    """Agent without prediction history should return 0.5."""
+    """Processor without prediction history should return 0.5."""
     wm = WorldModel()
-    err = wm.get_prediction_error("new_agent", "some content")
+    err = wm.get_prediction_error("new_processor", "some content")
     assert err == 0.5
 
 
 def test_get_prediction_error_repeated():
-    """Agent repeating content should have low prediction error."""
+    """Processor repeating content should have low prediction error."""
     wm = WorldModel()
     for i in range(5):
-        wm.update("s", {"agent_a": "the quick brown fox jumps over the lazy dog"})
-    err = wm.get_prediction_error("agent_a", "the quick brown fox")
+        wm.update("s", {"processor_a": "the quick brown fox jumps over the lazy dog"})
+    err = wm.get_prediction_error("processor_a", "the quick brown fox")
     assert err < 0.5, f"Expected low error for repeated content, got {err}"
 
 
 def test_update_creates_consensus():
-    """Multiple agents sharing tokens should create consensus concepts."""
+    """Multiple processors sharing tokens should create consensus concepts."""
     wm = WorldModel()
     wm.update("s1", {
         "a": "consciousness global workspace broadcast",
@@ -78,7 +78,7 @@ def test_update_limits_history():
     for i in range(20):
         wm.update(f"stimulus_{i}", {"a": f"content_{i}"})
     assert len(wm.stimulus_history) <= 5
-    assert len(wm.agent_predictions.get("a", [])) <= 3
+    assert len(wm.processor_predictions.get("a", [])) <= 3
 
 
 def test_update_returns_summary():

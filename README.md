@@ -2,7 +2,7 @@
 
 **A computational framework for investigating consciousness through causal GWT–IIT integration.**
 
-> **Branch**: `main` — Neural agent backend (small RNNs, causal TPM-based Φ)
+> **Branch**: `main` — Neural processor backend (small RNNs, causal TPM-based Φ)
 > **Target**: Entropy (MDPI) / PLOS Computational Biology
 > For the LLM-based version, see [`noesis-llm`](https://github.com/guyu-adam/noesis/tree/noesis-llm) branch.
 
@@ -26,11 +26,11 @@ Two theories dominate the scientific study of consciousness:
 
 Unlike typical consciousness papers that argue from philosophy or neuroimaging, Noesis **builds a minimal computational system** where:
 
-1. **Agents are small recurrent neural networks** (32 neurons each). Each agent has real causal structure via its recurrent weight matrix W_rec. This makes Φ measurable from neural activation state transition matrices — not token-distribution proxies.
+1. **Processors are small recurrent neural networks** (256 neurons each). Each processor has real causal structure via its recurrent weight matrix W_rec. This makes Φ measurable from neural activation state transition matrices — not token-distribution proxies.
 
-2. **The GWT broadcast mechanism** (competition + attention + global workspace) is implemented as a dynamical system that the agents participate in cycle by cycle.
+2. **The GWT broadcast mechanism** (competition + attention + global workspace) is implemented as a dynamical system that the processors participate in cycle by cycle.
 
-3. **Φ is computed from the causal TPM** of the system's neural states — effective information, mutual information between activation patterns, and irreducibility of the global state to individual agent states.
+3. **Φ is computed from the causal TPM** of the system's neural states — effective information, mutual information between activation patterns, and irreducibility of the global state to individual processor states.
 
 4. **CGWT (Collaborative GWT)** extends winner-take-all broadcast to coalition consensus broadcast, hypothesized to produce higher Φ by preserving both consensus ground and complementary diversity.
 
@@ -70,7 +70,7 @@ Unlike typical consciousness papers that argue from philosophy or neuroimaging, 
     └────────────────────────────────────────────────────┘
 ```
 
-Each agent is a small RNN with specialized recurrent connectivity:
+Each processor is a small RNN with specialized recurrent connectivity:
 - **Perceptor**: near-diagonal W_rec → fast decorrelation, feature extraction
 - **Reasoner**: chain-structured W_rec → sequential processing stages
 - **Evaluator**: bistable W_rec → attractor dynamics, value judgment
@@ -96,8 +96,8 @@ noesis/
 │   ├── reasoner.py
 │   ├── evaluator.py
 │   ├── narrator.py
-│   ├── neural_base.py     # Neural agent base (RNN)
-│   └── neural_agents.py   # Specialized neural agents
+│   ├── neural_base.py     # Neural processor base (RNN)
+│   └── neural_agents.py   # Specialized neural processors
 ├── tests/
 │   ├── test_neural_iit.py   # Neural Φ computation tests
 │   └── test_world_model.py  # World model tests
@@ -141,8 +141,8 @@ curl http://localhost:7860/status
 |------|-------------|
 | `competitive` | Standard GWT winner-take-all (baseline) |
 | `random` | Random winner selection (control) |
-| `no_broadcast` | No broadcast, agents process independently (control) |
-| `single_agent` | Only one agent active (control) |
+| `no_broadcast` | No broadcast, processors process independently (control) |
+| `single_agent` | Only one processor active (control) |
 | `collaborative` | CGWT coalition consensus broadcast |
 | `hybrid` | Competitive narrowing → top-2 coalition merge |
 
@@ -164,10 +164,10 @@ Each record includes: timestamp, cycle_id, phi values, proposals, winner, coalit
 
 ## Status
 
-**Neural framework** in place. Architecture: workspace + attention controller + consensus controller + 3 specialized RNN agents + world model + neural IIT module.
+**Neural framework** in place. Architecture: workspace + attention controller + consensus controller + 5 specialized RNN processors + world model + neural IIT module.
 
 **Completed:**
-- Small RNN agents with specialized recurrent connectivity
+- Small RNN processors with specialized recurrent connectivity
 - Neural Φ computation from activation TPMs
 - Collaborative workspace with coalition broadcast
 - World model with consensus scoring and prediction error tracking
@@ -178,7 +178,7 @@ Each record includes: timestamp, cycle_id, phi values, proposals, winner, coalit
 **Next:**
 - Run experiments, validate Φ computation
 - Weight sensitivity analysis
-- Scale to 5 agents with ablation experiments
+- Scale to 5 processors with ablation experiments
 - Write paper for Entropy submission
 
 ---

@@ -1,11 +1,11 @@
 """
-Specialized neural agents — differentiated by recurrent connectivity patterns.
+Specialized neural processors — differentiated by recurrent connectivity patterns.
 
-Each agent type has a distinct W_rec initialization, producing different
+Each processor type has a distinct W_rec initialization, producing different
 dynamical regimes (different causal structures). This is analogous to how
 cortical areas have similar microcircuitry but different connectivity.
 
-Agent types and their dynamical signatures:
+Processor types and their dynamical signatures:
 
     Perceptor   — Sparse near-diagonal W_rec. Fast decorrelation, feature extraction.
     Reasoner    — Chain-structured W_rec. Sequential processing stages.
@@ -21,7 +21,7 @@ All initializations are N-independent and scale to arbitrary neuron counts.
 
 import os
 import numpy as np
-from agents.neural_base import NeuralAgent
+from agents.neural_base import NeuralProcessor
 
 
 # ── Helper ──────────────────────────────────────────────────────────────
@@ -36,13 +36,13 @@ def _stabilize(W: np.ndarray, target_radius: float = 0.9) -> np.ndarray:
 
 # ── Agent classes ────────────────────────────────────────────────────────
 
-class NeuralPerceptor(NeuralAgent):
+class NeuralPerceptor(NeuralProcessor):
     """
-    Sensory processing agent — high-dimensional, rapidly decorrelating dynamics.
+    Sensory processing — high-dimensional, rapidly decorrelating dynamics.
 
     W_rec: sparse near-diagonal with local lateral connections.
     Fast decorrelation — each neuron processes a narrow feature band,
-    maximizing differentiation (high information, low initial integration).
+    maximizing differentiation.
 
     Scales naturally: for N neurons, each neuron connects to ~3-5 neighbors.
     """
@@ -72,9 +72,9 @@ class NeuralPerceptor(NeuralAgent):
         return _stabilize(W)
 
 
-class NeuralReasoner(NeuralAgent):
+class NeuralReasoner(NeuralProcessor):
     """
-    Logical reasoning agent — structured sequential dynamics.
+    Logical reasoning — structured sequential dynamics.
 
     W_rec: chain-like (feedforward bias in the recurrent matrix).
     Information flows through processing stages, producing stepwise
@@ -112,9 +112,9 @@ class NeuralReasoner(NeuralAgent):
         return _stabilize(W)
 
 
-class NeuralEvaluator(NeuralAgent):
+class NeuralEvaluator(NeuralProcessor):
     """
-    Affective/value evaluation agent — bistable attractor dynamics.
+    Affective/value evaluation — bistable attractor dynamics.
 
     W_rec: two-pool structure with within-pool excitation and cross-pool
     inhibition. Creates attractor basins (positive/negative evaluation),
@@ -150,14 +150,14 @@ class NeuralEvaluator(NeuralAgent):
         return _stabilize(W)
 
 
-class NeuralIntegrator(NeuralAgent):
+class NeuralIntegrator(NeuralProcessor):
     """
-    Holistic integration agent — small-world connectivity.
+    Holistic integration — small-world connectivity.
 
     W_rec: Watts-Strogatz small-world topology. Combines local clustering
     (high within-module integration) with long-range shortcuts (low path
     length). This creates rich, non-local dynamics that are well-suited
-    for detecting global patterns across diverse agent outputs.
+    for detecting global patterns across diverse processor outputs.
 
     Particularly relevant for measuring Φ: small-world networks show
     higher integration-differentiation balance than purely local or random.
@@ -200,9 +200,9 @@ class NeuralIntegrator(NeuralAgent):
         return _stabilize(W)
 
 
-class NeuralPredictor(NeuralAgent):
+class NeuralPredictor(NeuralProcessor):
     """
-    Anticipatory prediction agent — forward-skewed recurrent dynamics.
+    Anticipatory prediction — forward-skewed recurrent dynamics.
 
     W_rec: upper-triangular dominant (forward-skewed). Creates dynamics
     where information preferentially flows from lower-index to higher-index
@@ -244,7 +244,7 @@ class NeuralPredictor(NeuralAgent):
 
 class NeuralNarrator:
     """
-    Phenomenological report generator for neural agents.
+    Phenomenological report generator for neural processors.
 
     Unlike the LLM-based Narrator (which generates text via Ollama),
     NeuralNarrator produces structured summaries of the system's state

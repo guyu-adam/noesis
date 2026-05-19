@@ -3,7 +3,7 @@ Experiment runner — orchestrates GWT+IIT and CGWT cycles.
 
 Each cycle:
   1. Φ measured before broadcast (baseline)
-  2. All specialized agents process the same stimulus → produce proposals
+  2. All specialized processors process the same stimulus → produce proposals
   3. Selection: competitive (GWT), random, collaborative (CGWT), or hybrid
   4. Broadcast to global workspace
   5. Φ measured after broadcast (phi_proxy for competitive; phi_collaborative for CGWT)
@@ -14,7 +14,7 @@ Modes:
   - "competitive": standard GWT winner-take-all (control)
   - "random": random winner selection (control)
   - "no_broadcast": no broadcast (control)
-  - "single_agent": one agent only (control)
+  - "single_agent": one processor only (control)
   - "collaborative": CGWT coalition broadcast using ConsensusController
   - "hybrid": competitive narrows to top-2, then collaborative merge
 """
@@ -336,15 +336,15 @@ def analyze_comparison(results: dict[str, list[dict]]) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Neural experiment runner — for main branch (SNN/RNN agents, real causal Φ)
+# Neural experiment runner — for main branch (RNN processors, real causal Φ)
 # ══════════════════════════════════════════════════════════════════════════════
 
-_neural_agent_cache: dict = {}
+_neural_processor_cache: dict = {}
 
 
-def _get_neural_agents(n_neurons: int = None, n_input: int = None):
-    """Initialize or retrieve neural agent instances (5 agent types)."""
-    if "perceptor" not in _neural_agent_cache:
+def _get_neural_processors(n_neurons: int = None, n_input: int = None):
+    """Initialize or retrieve neural processor instances (5 processor types)."""
+    if "perceptor" not in _neural_processor_cache:
         n_neurons = n_neurons or int(os.environ.get("NOESIS_N_NEURONS", "256"))
         n_input = n_input or int(os.environ.get("NOESIS_N_INPUT", "32"))
 
@@ -353,15 +353,15 @@ def _get_neural_agents(n_neurons: int = None, n_input: int = None):
             NeuralIntegrator, NeuralPredictor, NeuralNarrator,
         )
 
-        _neural_agent_cache["perceptor"] = NeuralPerceptor(n_neurons, n_input, seed=100)
-        _neural_agent_cache["reasoner"] = NeuralReasoner(n_neurons, n_input, seed=200)
-        _neural_agent_cache["evaluator"] = NeuralEvaluator(n_neurons, n_input, seed=300)
-        _neural_agent_cache["integrator"] = NeuralIntegrator(n_neurons, n_input, seed=400)
-        _neural_agent_cache["predictor"] = NeuralPredictor(n_neurons, n_input, seed=500)
-        _neural_agent_cache["narrator"] = NeuralNarrator()
-        _neural_agent_cache["n_neurons"] = n_neurons
-        _neural_agent_cache["n_input"] = n_input
-    return _neural_agent_cache
+        _neural_processor_cache["perceptor"] = NeuralPerceptor(n_neurons, n_input, seed=100)
+        _neural_processor_cache["reasoner"] = NeuralReasoner(n_neurons, n_input, seed=200)
+        _neural_processor_cache["evaluator"] = NeuralEvaluator(n_neurons, n_input, seed=300)
+        _neural_processor_cache["integrator"] = NeuralIntegrator(n_neurons, n_input, seed=400)
+        _neural_processor_cache["predictor"] = NeuralPredictor(n_neurons, n_input, seed=500)
+        _neural_processor_cache["narrator"] = NeuralNarrator()
+        _neural_processor_cache["n_neurons"] = n_neurons
+        _neural_processor_cache["n_input"] = n_input
+    return _neural_processor_cache
 
 
 def run_neural_cycle(
@@ -373,17 +373,17 @@ def run_neural_cycle(
     n_input: int = 16,
 ) -> dict:
     """
-    Run one experimental cycle using NEURAL agents (small RNNs), not LLMs.
+    Run one experimental cycle using neural processors (small RNNs), not LLMs.
 
     This is the MAIN BRANCH experiment runner. Key differences from run_cycle():
 
-      - Agents are small RNNs with real recurrent causal structure
+      - Processors are small RNNs with real recurrent causal structure
       - Proposals are activation vectors (numpy arrays), not text strings
       - Φ is computed from neural activation TPMs (neural_iit.py)
-      - The "broadcast" is an activation pattern injected into all agents
+      - The "broadcast" is an activation pattern injected into all processors
 
     The experimental protocol (GWT/IIT cycle structure) is identical to the
-    LLM version — only the agent implementation differs.
+    LLM version — only the processor implementation differs.
 
     Args:
         stimulus_vec: Shape (n_input,). Encoded stimulus vector.
@@ -391,7 +391,7 @@ def run_neural_cycle(
         memory: SemanticMemory instance.
         mode: "competitive" | "random" | "no_broadcast" | "single_agent"
               | "collaborative" | "hybrid"
-        n_neurons: Neurons per agent (default 32).
+        n_neurons: Neurons per processor (default 32).
         n_input: Stimulus vector dimension (default 16).
 
     Returns:
@@ -402,35 +402,35 @@ def run_neural_cycle(
         neural_phi, neural_information_geometry, cluster_activation_states,
     )
 
-    agents = _get_neural_agents(n_neurons, n_input)
+    processors = _get_neural_processors(n_neurons, n_input)
     workspace_context_vec = workspace.read_vec() if hasattr(workspace, 'read_vec') else np.zeros(n_neurons)
 
     # ── Phase 1: Pre-broadcast Φ ───────────────────────────────────────
     if hasattr(workspace, 'read_vec'):
         phi_before = neural_phi(
             workspace.read_vec(),
-            {k: v.read_proposal() for k, v in agents.items()
+            {k: v.read_proposal() for k, v in processors.items()
              if hasattr(v, 'read_proposal')},
             workspace.history if hasattr(workspace, 'history') else [],
         )
     else:
         phi_before = 0.0
 
-    # ── Phase 2: Neural agents process stimulus ────────────────────────
+    # ── Phase 2: Neural processors process stimulus ────────────────────
     proposals = {}
-    agent_names = ["perceptor", "reasoner", "evaluator", "integrator", "predictor"]
+    processor_names = ["perceptor", "reasoner", "evaluator", "integrator", "predictor"]
 
     if mode == "single_agent":
         try:
-            proposals["reasoner"] = agents["reasoner"].process(
+            proposals["reasoner"] = processors["reasoner"].process(
                 stimulus_vec, workspace_context_vec
             )
         except Exception:
             proposals["reasoner"] = np.zeros(n_neurons)
     else:
-        for name in agent_names:
+        for name in processor_names:
             try:
-                proposals[name] = agents[name].process(
+                proposals[name] = processors[name].process(
                     stimulus_vec, workspace_context_vec
                 )
             except Exception:
@@ -450,8 +450,8 @@ def run_neural_cycle(
         text_proposals[name] = _neural_vec_to_text(vec, name)
 
     if mode == "random":
-        agent_names_shuffled = list(text_proposals.keys())
-        winner_name = random.choice(agent_names_shuffled) if agent_names_shuffled else "none"
+        processor_names_shuffled = list(text_proposals.keys())
+        winner_name = random.choice(processor_names_shuffled) if processor_names_shuffled else "none"
         winner_vec = proposals.get(winner_name, np.zeros(n_neurons))
 
     elif mode == "no_broadcast":
@@ -539,16 +539,16 @@ def run_neural_cycle(
 
     # ── Phase 6: Neural narrative ─────────────────────────────────────
     try:
-        narrative = agents["narrator"].generate(
+        narrative = processors["narrator"].generate(
             winner_vec, phi_before, phi_after, winner_name, broadcasted
         )
-        agents["narrator"].cycle_count += 1
+        processors["narrator"].cycle_count += 1
     except Exception:
         narrative = "[narrator unavailable]"
 
     # ── Phase 7: Complexity (differentiation) ─────────────────────────
-    agent_stds = [float(np.std(p)) for p in proposals.values() if len(p) > 0]
-    complexity = float(np.mean(agent_stds)) if agent_stds else 0.0
+    processor_stds = [float(np.std(p)) for p in proposals.values() if len(p) > 0]
+    complexity = float(np.mean(processor_stds)) if processor_stds else 0.0
 
     result = {
         "stimulus_vec_shape": list(stimulus_vec.shape),
@@ -565,7 +565,7 @@ def run_neural_cycle(
         "complexity": round(complexity, 6),
         "narrative": narrative,
         "mode": mode,
-        "agent_type": "neural_rnn",
+        "processor_type": "neural_rnn",
     }
 
     _save_cycle_result(result, mode, workspace._cycle_count)

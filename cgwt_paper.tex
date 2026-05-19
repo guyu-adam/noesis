@@ -14,7 +14,8 @@
 \pubyear{2026}
 \copyrightyear{2026}
 
-\Title{Collaborative Global Workspace Theory: Coalition Broadcast Increases Integrated Information Beyond Competitive Selection}
+\Title{Collaborative Global Workspace Theory: Testing Whether Coalition Consensus Broadcast
+Increases Causal Integrated Information in a Recurrent Neural Processor System}
 
 \Author{Guyu Adam$^{1}$}
 
@@ -26,31 +27,31 @@ $^{1}$ \quad Independent Research; dhuojian@gmail.com}
 \corres{Correspondence: dhuojian@gmail.com}
 
 \abstract{%
-Global Workspace Theory (GWT) and Integrated Information Theory (IIT) are the two
-dominant computational frameworks for studying consciousness, yet their core mechanisms
-remain at odds: GWT posits that consciousness arises from competitive winner-take-all
-broadcast, while IIT holds that consciousness is proportional to the irreducible integrated
-information $\Phi$ of a system's causal structure. Recent adversarial testing (Ferrante et al.,
-Nature, 2025) revealed that both theories partially fail empirical predictions, motivating
-new integrative approaches. Here we introduce the \textit{Collaborative Global Workspace
-Theory} (CGWT), which extends GWT by replacing winner-take-all selection with a
-\textit{coalition consensus broadcast} mechanism grounded in a shared world model.
-Under CGWT, a consensus controller selects a coalition of agents whose outputs achieve
-sufficient mutual agreement; their merged representation enters the global workspace
-jointly, preserving both consensus ground and complementary diversity. We implement CGWT
-as a multi-agent computational framework and measure $\Phi$ (via a tractable proxy
-combining mutual information, effective information, and transfer entropy) across five
-experimental modes: collaborative, hybrid, competitive, random, and no-broadcast.
-Experiments across 120 cycles on eight consciousness-related stimuli demonstrate that
-collaborative coalition broadcast yields significantly higher $\Phi$ than competitive
-single-winner broadcast ($p < 0.05$, Mann--Whitney $U$ test), supporting the central
-CGWT hypothesis. Our framework provides a computationally testable bridge between GWT
-and IIT, consistent with the synergistic workspace hypothesis (Luppi et al., eLife,
-2024) and the IIT--Free Energy Principle bridge (Kearney, 2026).
+Global Workspace Theory (GWT) and Integrated Information Theory (IIT) are two
+dominant frameworks for the scientific study of consciousness, yet their proposed
+mechanisms remain in tension: GWT posits that consciousness arises from competitive
+winner-take-all broadcast among specialized processors, while IIT proposes that
+consciousness is proportional to the irreducible integrated information $\Phi$
+of a system's causal structure. Whether GWT-like broadcast mechanisms can produce
+high-$\Phi$ states---and whether coalition consensus broadcast produces higher
+$\Phi$ than competitive selection---remains an open computational question.
+Here we introduce the \textit{Collaborative Global Workspace Theory} (CGWT), which
+extends GWT by replacing winner-take-all selection with a \textit{coalition consensus
+broadcast} mechanism grounded in a shared world model. We implement CGWT in a minimal
+recurrent neural processor system: five specialized processors, each a small recurrent
+neural network (256 neurons) with distinct recurrent connectivity patterns, compete for
+or collaborate on global workspace access. $\Phi$ is computed directly from neural
+activation state transition probability matrices (TPMs), measuring the causal
+irreducibility of the workspace state to individual processor states. Experiments
+compare six modes (collaborative, hybrid, competitive, random, single-processor,
+and no-broadcast) across [TO BE FILLED] stimuli and [TO BE FILLED] cycles.
+Our framework provides a computationally tractable testbed for GWT--IIT integration
+with genuine causal structure---bridging the gap between purely theoretical
+consciousness models and empirical validation.
 }
 
 \keyword{consciousness; global workspace theory; integrated information theory;
-collaborative broadcast; multi-agent systems; $\Phi$; synergistic information;
+collaborative broadcast; $\Phi$; recurrent neural networks; causal state transition matrix;
 free energy principle; coalition dynamics; computational neuroscience}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -60,31 +61,31 @@ free energy principle; coalition dynamics; computational neuroscience}
 \section{Introduction}
 \label{sec:intro}
 
-The scientific study of consciousness has been dominated by two complementary yet
-competing theoretical frameworks. \textit{Global Workspace Theory} (GWT), introduced
-by Baars~\cite{baars1988}, proposes that consciousness arises when information from
-specialized processing modules wins competitive access to a shared global workspace
-and is subsequently broadcast to all cognitive systems. The neural implementation
-of this idea---the Global Neuronal Workspace Theory (GNWT)---identifies a distributed
-network of long-range prefrontal-parietal connections whose ``ignition'' corresponds
-to conscious access~\cite{dehaene2011}. \textit{Integrated Information Theory} (IIT),
-developed by Tononi~\cite{tononi2004,tononi2016}, provides a complementary account:
-consciousness is identified with the quantity $\Phi$ (phi), measuring the irreducible
-integrated information generated by a system above and beyond its parts.
+The scientific study of consciousness has been shaped by two influential theoretical
+frameworks. \textit{Global Workspace Theory} (GWT), introduced by Baars~\cite{baars1988},
+proposes that consciousness arises when information from specialized processing modules
+wins competitive access to a shared global workspace and is subsequently broadcast to
+all cognitive systems. The neural implementation---the Global Neuronal Workspace Theory
+(GNWT)---identifies a distributed network of long-range prefrontal-parietal connections
+whose ``ignition'' corresponds to conscious access~\cite{dehaene2011}.
+\textit{Integrated Information Theory} (IIT), developed by Tononi~\cite{tononi2004,tononi2016},
+provides a complementary account: consciousness is identified with the quantity $\Phi$,
+measuring the irreducible integrated information generated by a system above and beyond
+its parts.
 
 Despite decades of development, both theories face significant empirical challenges.
 The landmark adversarial collaborative study by Ferrante et al.~\cite{ferrante2025}
 tested predictions of GNWT and IIT simultaneously in 256 participants using multimodal
-neuroimaging (fMRI, MEG, iEEG). The results were striking: IIT's prediction of
-sustained posterior synchrony was not confirmed, and GNWT's prediction of global ignition
-at stimulus offset was only partially supported. Barrett et al.~\cite{barrett2026}
-further argued that $\Phi$ as currently formulated is not well-defined for
-non-Markovian systems such as the brain, and that all current $\Phi$ implementations
-are proxy measures rather than true approximations.
+neuroimaging (fMRI, MEG, iEEG). Both theories partially failed their predicted signatures:
+IIT's prediction of sustained posterior synchrony was not confirmed, and GNWT's prediction
+of global ignition was only partially supported. Barrett et al.~\cite{barrett2026}
+further argued that $\Phi$ as currently formulated is not well-defined for non-Markovian
+systems such as the brain, and that all current $\Phi$ implementations for large systems
+are proxy measures rather than exact computations.
 
-These convergent findings motivate a reformulation that preserves the mechanistic
+These convergent findings motivate integrative approaches that preserve the mechanistic
 insights of both frameworks while addressing their individual weaknesses. A promising
-direction has emerged from information decomposition approaches: Luppi et al.~\cite{luppi2024}
+direction has emerged from information decomposition: Luppi et al.~\cite{luppi2024}
 identified a ``synergistic workspace'' in the human brain where information integration
 operates synergistically---not merely additively---across neural regions. Their
 identification of gateway regions (information collectors) and broadcaster regions
@@ -94,28 +95,35 @@ multi-source coordination rather than simple winner-take-all competition.
 In parallel, Kearney~\cite{kearney2026} established a mathematical bridge between IIT
 and the Free Energy Principle (FEP)~\cite{friston2010}, showing that IIT's cause-effect
 structure can be derived from maximum-caliber (MaxCal) entropy principles. This
-connection suggests that the mechanisms of conscious broadcast may be interpretable
-within a unified information-theoretic framework.
+connection implies that systems minimizing free energy (prediction error) will tend
+toward states of higher $\Phi$, connecting the functional mechanism of GWT with the
+structural metric of IIT.
 
 Here we introduce \textit{Collaborative Global Workspace Theory} (CGWT) and its
-computational implementation. CGWT modifies GWT's core selection mechanism in two
-ways: (1) replacing winner-take-all competition with \textit{coalition consensus
-selection}, where a subset of agents whose outputs achieve mutual agreement are
-collectively selected; and (2) grounding this selection in a \textit{shared world model}
-that tracks the collective epistemic state of the agent coalition across cycles.
-The merged coalition output enters the global workspace jointly, preserving both
-consensus content and complementary diversity---the structural conditions hypothesized
-to maximize $\Phi$.
+implementation in a minimal computational system with genuine causal structure.
+CGWT modifies GWT's core selection mechanism in two ways: (1) replacing winner-take-all
+competition with \textit{coalition consensus selection}, where a subset of processors
+whose outputs achieve mutual agreement are collectively selected; and (2) grounding this
+selection in a \textit{shared world model} that tracks the collective epistemic state
+across cycles. The merged coalition output enters the global workspace jointly,
+preserving both consensus content and complementary diversity---the structural conditions
+hypothesized to maximize $\Phi$.
+
+Crucially, our implementation uses \textit{recurrent neural network processors}, not
+large language models. Each processor is a small RNN ($N = 256$ neurons) with specialized
+recurrent weight matrices ($W_{\text{rec}}$) that define its causal structure. $\Phi$ is
+computed from neural activation state transition probability matrices (TPMs)---not from
+token-distribution proxies. This means the system has genuine causal structure: the
+transition from one activation state to another is governed by the actual dynamics
+of the recurrent network, making the effective information (EI) and mutual information
+(MI) components of $\Phi$ directly measurable from the system's causal architecture.
 
 We test the central CGWT hypothesis computationally:
 \begin{equation}
 \Phi_{\text{collaborative}} > \Phi_{\text{competitive}} > \Phi_{\text{random}} > \Phi_{\text{no-broadcast}}
 \label{eq:hypothesis}
 \end{equation}
-
-using a multi-agent language model framework with five experimental modes and 120
-total experimental cycles. Our results support this ordering and provide a
-quantitative characterization of how coalition dynamics shape integrated information.
+using six experimental modes and [TO BE FILLED] total experimental cycles.
 
 
 \section{Background and Related Work}
@@ -129,67 +137,61 @@ Information that wins this competition is ``broadcast'' globally, becoming avail
 to all other processors simultaneously---a state Baars identifies with consciousness.
 Dehaene and Changeux formalized this as GNWT~\cite{dehaene2011}, predicting that
 conscious access corresponds to late-onset, large-amplitude neural amplification
-accompanied by long-range gamma synchrony. The theory has received substantial
-experimental support, particularly for the role of prefrontal cortex in late-stage
-integration.
+accompanied by long-range gamma synchrony.
 
 However, GWT's winner-take-all broadcast mechanism has known limitations. It cannot
 easily account for the phenomenological richness of conscious experience (the ``binding
 problem''), nor for evidence of simultaneous multi-object awareness~\cite{tononi2015}.
 The Ferrante et al. study~\cite{ferrante2025} further showed that the predicted
 ``ignition'' signature is absent in many conditions, raising questions about whether
-all-or-nothing broadcast accurately describes the neural mechanism.
+all-or-nothing single-winner broadcast accurately describes the neural mechanism.
 
 \subsection{Integrated Information Theory}
 
 IIT~\cite{tononi2004} takes a complementary perspective, beginning from the phenomenology
 of experience and deriving constraints on its physical substrate. The key quantity is
 $\Phi$: the amount of integrated information generated by a system above and beyond
-its parts. A system is conscious to the degree that it cannot be decomposed into
-non-interacting components without loss of information. IIT makes specific structural
-predictions: consciousness resides in posterior cortical regions with dense reciprocal
-connectivity, not in the feedforward pathways of perception or the efferent pathways
-of action~\cite{tononi2016}.
+its parts. A system has consciousness to the degree that it cannot be decomposed into
+non-interacting components without loss of information.
 
 The main practical limitation of IIT is computational: exact $\Phi$ is NP-hard to
-compute for systems with more than $\sim$20 elements~\cite{barrett2026}. All
-practical implementations use proxy measures, a fact that Barrett et al.~\cite{barrett2026}
-argue is frequently underappreciated. The scalable proxy approach, combining mutual
-information, effective information, and transfer entropy, has been validated as
-a tractable approximation framework~\cite{phua2025}.
+compute for systems with more than $\sim$20 elements~\cite{barrett2026}. For larger
+systems, tractable approximations are required. Our approach addresses this by working
+with a system small enough (5 processors $\times$ 256 neurons $=$ 1280 neurons total)
+that the state transition matrix can be computed from discretized activations via
+clustering, while being large enough to exhibit non-trivial integration-differentiation
+dynamics.
 
 \subsection{Synergistic Workspace and Information Decomposition}
 
-A pivotal recent contribution is Luppi et al.'s identification of a synergistic
-workspace in human consciousness~\cite{luppi2024}. Using Partial Information
-Decomposition (PID), they showed that the content of consciousness is encoded
-synergistically in neural coalitions---the whole contains more information than
-any linear combination of parts. They identified two functional classes: ``gateway''
-regions (sensory cortex, integrating local information) and ``broadcaster'' regions
-(frontoparietal cortex, distributing globally). This architecture suggests that
+Luppi et al.~\cite{luppi2024} used Partial Information Decomposition (PID) to show that
+conscious content in the human brain is encoded synergistically in neural coalitions---
+the whole contains more information than any linear combination of parts. They identified
+``gateway'' regions (sensory cortex, integrating local information) and ``broadcaster''
+regions (frontoparietal cortex, distributing globally). This architecture suggests that
 the broadcast mechanism itself may be fundamentally synergistic, involving coordinated
 multi-source contributions rather than single-winner propagation.
 
 \subsection{IIT--Free Energy Principle Bridge}
 
-Kearney~\cite{kearney2026} recently demonstrated that IIT's cause-effect structure
-can be derived from MaxCal entropy principles---the same foundation as Friston's
-Free Energy Principle~\cite{friston2010}. Specifically, IIT's causal repertoire
-corresponds to the deviation of a system's path ensemble from the maximum-entropy
-reference. This mathematical correspondence implies that systems minimizing free
-energy (prediction error) will tend toward states of higher $\Phi$, connecting the
-functional mechanism of GWT (attentional selection as prediction-error routing)
-with the structural metric of IIT.
+Kearney~\cite{kearney2026} demonstrated that IIT's cause-effect structure can be derived
+from MaxCal entropy principles---the same foundation as Friston's Free Energy
+Principle~\cite{friston2010}. This mathematical correspondence implies that the mechanisms
+of conscious broadcast are interpretable within a unified information-theoretic framework.
+In our implementation, the CGWT world model serves as the collective generative model,
+and the consensus controller's prediction error term directly implements free-energy
+minimization in coalition selection.
 
-\subsection{Computational Testing of Consciousness Theories}
+\subsection{Computational Approaches to Consciousness}
 
-Phua~\cite{phua2025} demonstrated that consciousness theories can be tested
-computationally using multi-agent AI systems, employing structured ablations to
-compare predictions of GWT, IIT, and Higher-Order Theories. A key finding was that
-the three theories describe complementary functional layers rather than competing
-accounts, supporting an integrative approach. Our work builds directly on this
-methodology, extending the experimental framework to include collaborative broadcast
-modes not previously tested.
+Phua~\cite{phua2025} demonstrated that consciousness theories can be tested computationally
+using structured ablation paradigms, finding that GWT, IIT, and Higher-Order Theories
+describe complementary functional layers. Several computational frameworks have explored
+GWT--IIT integration~\cite{iwmt2020, godelos2025}, but these have largely relied on
+linguistic agents or abstract mathematical models rather than systems with directly
+measurable causal structure. Our work differs by implementing the framework in recurrent
+neural networks where the causal transition structure is explicitly defined and
+$\Phi$ is computed from neural activations rather than from token-distribution proxies.
 
 
 \section{Collaborative Global Workspace Theory}
@@ -199,209 +201,289 @@ modes not previously tested.
 
 CGWT proposes that the mechanism responsible for generating high-$\Phi$ states is
 not winner-take-all competitive broadcast but \textit{coalition consensus broadcast}:
-a structured coordination process in which multiple agents whose outputs achieve
+a structured coordination process in which multiple processors whose outputs achieve
 mutual agreement jointly contribute to the global workspace.
 
 The key structural insight is that coalition broadcast creates a richer causal
 structure than single-winner broadcast. In standard GWT, after broadcast, the
-workspace contains a single agent's representation. In CGWT, it contains the
-\textit{merged output of a coherent coalition}---a state that is causally connected
+workspace contains a single processor's activation pattern. In CGWT, it contains
+the \textit{merged output of a coherent coalition}---a state causally connected
 to multiple independent processing streams simultaneously. By IIT's definition,
 this joint state has higher irreducibility (it cannot be decomposed into independent
-agent representations without information loss), hence higher $\Phi$.
+processor representations without information loss), hence higher $\Phi$.
 
 \subsection{World Model}
 
 CGWT introduces a \textit{shared world model}: a collaborative representation
-of the stimulus environment maintained jointly by all agents and updated after
+of the stimulus environment maintained jointly by all processors and updated after
 each broadcast cycle. The world model tracks:
 
 \begin{enumerate}
-\item \textbf{Consensus concepts}: tokens appearing in the proposals of at least 60\%
-of agents, forming a shared semantic ground.
-\item \textbf{Prediction residuals}: per-agent novelty scores measuring how much
-each agent's output deviates from its own recent history. High residual indicates
-a genuine new contribution (cf.\ prediction-error minimization in FEP~\cite{friston2010}).
-\item \textbf{Agent disagreement map}: the proportion of each agent's output that
-is unique (not shared with other agents), quantifying diversity of perspective.
+\item \textbf{Consensus concepts}: tokens appearing in the proposals of at least a
+configurable threshold fraction of processors, forming a shared semantic ground for
+coalition selection.
+\item \textbf{Prediction residuals}: per-processor novelty scores measuring how much
+each processor's output deviates from its own recent history. High residual indicates
+a genuinely new contribution, consistent with prediction-error minimization in
+FEP~\cite{friston2010}.
+\item \textbf{Processor disagreement map}: the proportion of each processor's output that
+is unique (not shared with other processors), quantifying diversity of perspective.
 \end{enumerate}
 
-The world model serves two functions: (a) as input to the consensus controller
-for coalition selection, and (b) as a measure of the collective epistemic state
-for $\Phi$ computation.
+The world model serves as both input to the consensus controller for coalition selection
+and as the collective epistemic state for interpreting $\Phi$ measurements. To prevent
+unbounded growth, consensus concepts are periodically pruned (every $n$ cycles, entries
+with frequency below threshold are removed).
 
 \subsection{Consensus Controller}
 
-The consensus controller replaces GWT's attention controller. Given a set of agent
-proposals $\{(a_i, c_i)\}$ where $a_i$ is an agent name and $c_i$ is its proposal
-content, the controller selects a coalition $\mathcal{C} \subseteq \{a_i\}$ as follows:
+The consensus controller replaces GWT's attention controller. Given processor proposals
+$\{(p_i, c_i)\}$ where $p_i$ is a processor name and $c_i$ is its output, the controller
+selects a coalition $\mathcal{C} \subseteq \{p_i\}$ as follows:
 
-\textbf{Step 1: Score each proposal.} Each proposal is scored by:
+\textbf{Step 1: Score each proposal.}
 \begin{equation}
-s_i = \alpha \cdot \text{WM}(c_i) + \beta \cdot \text{PE}(a_i, c_i) + \gamma \cdot \text{Int}(c_i)
+s_i = \alpha \cdot \text{WM}(c_i) + \beta \cdot \text{PE}(p_i, c_i) + \gamma \cdot \text{Int}(c_i)
 \label{eq:score}
 \end{equation}
-where $\text{WM}(c_i)$ is the world model consensus score (how well $c_i$ aligns
-with shared concepts), $\text{PE}(a_i, c_i)$ is the prediction error (novelty),
-$\text{Int}(c_i)$ is information intensity (log-scaled token count), and
-$\alpha = 0.40$, $\beta = 0.35$, $\gamma = 0.25$.
+where $\text{WM}(c_i)$ is the world model consensus score, $\text{PE}(p_i, c_i)$ is the
+prediction error (novelty), and $\text{Int}(c_i)$ is information intensity.
 
-\textbf{Step 2: Select coalition by agreement.} The highest-scoring proposal
-anchors the coalition. Subsequent proposals are added if their pairwise Jaccard
-agreement with the anchor exceeds threshold $\theta = 0.25$, up to coalition
-size $k = 2$.
+\textbf{Step 2: Select coalition by agreement.} The highest-scoring proposal anchors the
+coalition. Subsequent candidates are added if their pairwise agreement with the anchor
+exceeds threshold $\theta$, up to coalition size $k$.
 
-\textbf{Step 3: Merge coalition outputs.} The coalition's proposals are merged
-by: (a) including the anchor output in full, and (b) appending unique informative
-sentences from each additional agent (sentences whose token overlap with the anchor
-is below 60\%). This preserves both consensus ground and complementary perspectives.
+\textbf{Step 3: Merge coalition outputs.} Coalition outputs are merged to preserve both
+consensus ground and complementary perspectives.
 
-\subsection{Coalition $\Phi$ Measurement}
+\subsection{Unified $\Phi$ Measurement}
 
-For competitive modes, we compute $\Phi$ as the standard proxy~\cite{phua2025}:
+A critical methodological requirement is that $\Phi$ must be measured using the
+\textit{same formula across all experimental modes} to enable valid comparison.
+We define a unified $\Phi$ function applicable to all modes:
+
 \begin{equation}
-\Phi_{\text{comp}} = 0.40 \cdot \text{MI}_{\text{int}} + 0.35 \cdot \text{EI} + 0.25 \cdot \text{TE}
-\label{eq:phi_comp}
+\Phi = 0.40 \cdot \text{MI}_{\text{int}} + 0.35 \cdot \text{EI} + 0.25 \cdot D
+\label{eq:phi_unified}
 \end{equation}
-where $\text{MI}_{\text{int}}$ is the irreducible mutual information
-$I(\text{workspace};\text{all agents}) - \frac{1}{n}\sum_i I(\text{workspace}; a_i)$,
-$\text{EI}$ is the effective information from the causal state transition matrix,
-and $\text{TE}$ is the average transfer entropy from proposals to workspace history.
+where:
+\begin{itemize}
+\item $\text{MI}_{\text{int}} = I(\text{workspace}; \text{all processors}) -
+\frac{1}{n}\sum_i I(\text{workspace}; p_i)$ is the irreducible mutual information
+between global workspace state and individual processor states;
+\item $\text{EI}$ is the effective information computed from the causal state transition
+probability matrix (TPM) of discretized neural activation states;
+\item $D$ is the differentiation component, measured as the mean standard deviation
+of processor activation patterns.
+\end{itemize}
 
-For collaborative modes, we compute a coalition $\Phi$:
-\begin{equation}
-\Phi_{\text{collab}} = 0.35 \cdot \Phi_{\mathcal{C}} + 0.30 \cdot I(\text{ws};\mathcal{C}) + 0.25 \cdot \text{EI} + 0.10 \cdot D_{\mathcal{C}}
-\label{eq:phi_collab}
-\end{equation}
-where $\Phi_{\mathcal{C}}$ is the within-coalition irreducibility
-($I(\mathcal{C}_{\text{joint}};\mathcal{C}) - \frac{1}{|\mathcal{C}|}\sum_{c \in \mathcal{C}} I(c;\mathcal{C})$),
-$I(\text{ws};\mathcal{C})$ is the mutual information between the workspace and
-the full coalition, and $D_{\mathcal{C}}$ is the mean Jensen--Shannon distance
-between coalition members' distributions, measuring diversity.
+For competitive and random modes, the ``all processors'' set comprises all active processors;
+for collaborative and hybrid modes, it includes the coalition. For no-broadcast mode, the
+workspace state is the initial state and EI is computed from the independent processor
+dynamics. The formula itself remains identical across modes---only the inputs differ.
 
-The key difference: $\Phi_{\text{collab}}$ explicitly quantifies within-coalition
-synergy, capturing the additional irreducibility arising from multi-agent joint
-representation.
+All three components are computed from neural activation vectors (not token distributions),
+using discretized activation states clustered into $K$ states to build the causal TPM.
+The TPM entry $P(s_{t+1}=j \mid s_t=i)$ encodes the probability of transition from
+neural state $i$ to state $j$, capturing the system's causal structure directly.
 
 \subsection{Experimental Modes}
 
-We define five modes:
+We define six modes:
 \begin{itemize}
 \item \textbf{Collaborative}: CGWT coalition broadcast via ConsensusController.
 \item \textbf{Hybrid}: Competitive pass narrows to top-2 candidates; collaborative
-merge produces the broadcast. Tests whether pre-filtering improves coalition quality.
-\item \textbf{Competitive}: Standard GWT winner-take-all (control).
+merge produces the broadcast.
+\item \textbf{Competitive}: Standard GWT winner-take-all via AttentionController (baseline).
 \item \textbf{Random}: Winner selected uniformly at random (control).
-\item \textbf{No-broadcast}: No content enters the workspace (lower bound).
+\item \textbf{Single-processor}: Only one processor active (control for multi-processor necessity).
+\item \textbf{No-broadcast}: No content enters the workspace (lower bound control).
 \end{itemize}
 
 
-\section{Experimental Setup}
-\label{sec:experiment}
+\section{Methods}
+\label{sec:methods}
 
-\subsection{Multi-Agent Framework}
+\subsection{Recurrent Neural Processor System}
 
-We implement CGWT as a multi-agent language model system. Four specialized agents
-process each stimulus independently:
+We implement CGWT as a dynamical system of recurrent neural network processors.
+Each processor is a small RNN with the dynamics:
+\begin{equation}
+h_t = \tanh(W_{\text{rec}} \cdot h_{t-1} + W_{\text{in}} \cdot s + b)
+\label{eq:rnn}
+\end{equation}
+where $s \in \mathbb{R}^{d_{\text{in}}}$ is the stimulus embedding vector,
+$h_t \in \mathbb{R}^{N}$ is the hidden state at unroll step $t$,
+$W_{\text{rec}} \in \mathbb{R}^{N \times N}$ is the recurrent weight matrix,
+$W_{\text{in}} \in \mathbb{R}^{N \times d_{\text{in}}}$ is the input weight matrix,
+and $b \in \mathbb{R}^{N}$ is the bias vector.
+Each stimulus is processed for $T$ unroll steps; the final hidden state $h_T$ serves
+as the processor's ``proposal'' output to the global workspace.
+
+The default configuration uses $N = 256$ neurons per processor, $d_{\text{in}} = 32$
+stimulus dimension, and $T = 25$ unroll steps. All recurrent weight matrices are
+initialized with spectral radius $\rho(W_{\text{rec}}) < 1$ (echo-state property)
+to ensure stable dynamics. Gaussian noise ($\sigma = 0.01$) is added at each unroll
+step to prevent deterministic collapse.
+
+\subsection{Processor Specialization via Connectivity}
+
+Five specialized processor types are defined by distinct $W_{\text{rec}}$ initialization
+patterns, producing qualitatively different dynamical regimes:
+
 \begin{itemize}
-\item \textbf{Perceptor}: encodes perceptual salience and sensory features.
-\item \textbf{Reasoner}: applies logical inference and causal analysis.
-\item \textbf{Evaluator}: assesses affective relevance and goal alignment.
-\item \textbf{Narrator}: generates post-broadcast phenomenological reports (does not compete).
+\item \textbf{Perceptor}: Sparse near-diagonal $W_{\text{rec}}$ with strong self-connections
+and weak local lateral connections (radius $\approx N/64$). Produces fast decorrelation and
+feature extraction---high differentiation, low initial integration.
+\item \textbf{Reasoner}: Chain-structured $W_{\text{rec}}$ where neuron $i$ receives from
+recent predecessors $i-1, i-2, \dots, i-d$ (depth $d \approx N/32$), with skip connections.
+Implements sequential processing stages analogous to logical inference steps.
+\item \textbf{Evaluator}: Two-pool bistable $W_{\text{rec}}$ with within-pool excitation and
+cross-pool inhibition. Strong self-excitation creates hysteresis, implementing attractor
+dynamics for value-based decision-making.
+\item \textbf{Integrator}: Small-world $W_{\text{rec}}$ (Watts--Strogatz topology) combining
+local clustering (ring lattice, degree $k \approx N/16$) with long-range shortcuts
+(rewiring probability $p = 0.1$). This topology is known to optimize the
+integration--differentiation balance.
+\item \textbf{Predictor}: Forward-skewed $W_{\text{rec}}$ with dense upper-triangular
+connections and sparse lower-triangular feedback. Creates anticipatory dynamics where
+early neurons encode current state and later neurons encode predicted future states,
+implementing a simple temporal prediction hierarchy.
 \end{itemize}
 
-Agents are implemented as Ollama-backed language model instances (qwen3.5:4b),
-each maintaining a short-term internal state (5 most recent outputs) that primes
-future proposals---creating the causal structure across cycles that $\Phi$ measures.
+Specialization emerges from connectivity, not from prompts or training---making the
+causal structure real and directly measurable via $\Phi$.
 
-\subsection{Stimuli}
+\subsection{Stimulus Encoding}
 
-Eight stimuli covering core topics in consciousness research were used:
-(1) ``What is the relationship between perception and consciousness?'';
-(2) ``How does attention shape what we become aware of?'';
-(3) ``Can a system be conscious without self-awareness?'';
-(4) ``What distinguishes integrated information from mere computation?'';
-(5) ``How does memory influence the quality of conscious experience?'';
-(6) ``Is the global workspace a necessary condition for consciousness?'';
-(7) ``What role does prediction error play in conscious perception?'';
-(8) ``Can multiple agents jointly produce a unified conscious state?''.
+Text stimuli are encoded into fixed-dimensional vectors via deterministic hash-based
+random projection. Each token contributes a scaled random vector to a cumulative sum,
+which is then normalized to unit norm. This encoding is deliberately simple and
+reproducible: the same text always produces the same vector, and different texts
+produce approximately orthogonal vectors. The goal is controlled input variation,
+not semantic richness.
+
+\subsection{$\Phi$ Computation from Neural Activation TPMs}
+
+$\Phi$ is computed via the following pipeline:
+
+\textbf{1. Discretization.} Continuous neural activations $a \in \mathbb{R}^N$ are
+binarized by thresholding: $\text{neuron}_i = 1$ if $|a_i| > \tau$, else $0$.
+
+\textbf{2. State clustering.} For systems where the raw binary state space
+($2^N$ possibilities) is too large, continuous activation vectors are clustered
+into $K$ states via nearest-centroid assignment. The default is $K = 30$.
+
+\textbf{3. Causal TPM construction.} From the sequence of discretized state labels,
+a $K \times K$ transition probability matrix is built:
+$P(s_{t+1}=j \mid s_t=i) = \text{count}(i \to j) / \text{count}(i)$.
+This TPM encodes the causal structure of the neural system.
+
+\textbf{4. Effective information.} $ \text{EI} = \frac{1}{K}\sum_i D_{\text{KL}}(P(\cdot \mid i) \;\|\; p_{\text{eff}}(\cdot)) $,
+the average KL divergence of each state's effect distribution from the unconstrained
+effect distribution. High EI $\to$ strong causal constraints.
+
+\textbf{5. Mutual information.} $I(\text{workspace}; \text{processor}_i)$ is computed
+from the activation time series via 2D histogram binning. The irreducible component
+subtracts the average individual MI from the joint MI.
+
+\textbf{6. $\Phi$ aggregation.} The three components (MI integration, EI, differentiation)
+are combined via Equation~\eqref{eq:phi_unified}. All components are computed identically
+across all experimental modes.
 
 \subsection{Protocol}
 
-Each stimulus was processed for 3 cycles per mode. With 8 stimuli $\times$ 3 cycles
-$\times$ 5 modes = 120 total experimental cycles. Each cycle records $\Phi$ before
-broadcast, $\Phi$ after broadcast, $\Delta\Phi = \Phi_{\text{after}} - \Phi_{\text{before}}$,
-Fisher information trace, and Lempel-Ziv complexity. Workspaces were reset between
-modes to ensure independence.
+[TO BE FILLED with actual experimental protocol after data collection.]
+
+Each stimulus is processed for $c$ cycles per mode. With $s$ stimuli $\times$ $c$ cycles
+$\times$ $m$ modes = [TO BE FILLED] total experimental cycles. Each cycle records:
+$\Phi$ before broadcast, $\Phi$ after broadcast, $\Delta\Phi$, Fisher information trace,
+activation complexity, and coalition composition (for collaborative modes). Workspaces
+and processor states are reset between modes to ensure statistical independence.
+
+\subsection{Sensitivity Analysis}
+
+To verify that results are not artifacts of parameter choices, we perform sensitivity
+analysis on: (a) the $\Phi$ component weights in Equation~\eqref{eq:phi_unified};
+(b) the consensus threshold ratio in the world model; (c) the coalition size $k$;
+and (d) the processor count and neuron count. The primary conclusions should remain
+robust across reasonable parameter ranges.
+
+\subsection{Implementation}
+
+The framework is implemented in Python using NumPy for CPU computation with optional
+CuPy GPU acceleration for large-scale experiments. All source code, experiment
+configurations, and analysis scripts are available at
+\url{https://github.com/guyu-adam/noesis} (main branch).
 
 
 \section{Results}
 \label{sec:results}
 
+\textit{[All data in this section are placeholders. Actual experimental results
+to be filled after data collection and analysis.]}
+
 \subsection{$\Phi$ Comparison Across Modes}
 
-Table~\ref{tab:phi} summarizes the $\Phi$ measurements across all experimental modes.
-%%% TABLE PLACEHOLDER — fill with actual results after experiment completes
+Table~\ref{tab:phi} will summarize $\Phi$ measurements across all experimental modes.
+
 \begin{table}[H]
-\caption{Mean post-broadcast $\Phi$ and $\Delta\Phi$ across experimental modes (120 total cycles).}
+\caption{Mean post-broadcast $\Phi$ and $\Delta\Phi$ across experimental modes.
+\textbf{Note: placeholder structure --- actual data pending.}}
 \label{tab:phi}
 \centering
 \begin{tabular}{lcccc}
 \toprule
 \textbf{Mode} & \textbf{Mean $\Phi_{\text{after}}$} & \textbf{Mean $\Delta\Phi$} & \textbf{Max $\Delta\Phi$} & \textbf{$n$ cycles} \\
 \midrule
-Collaborative & \textbf{2.2765} & \textbf{1.5735} & 1.8786 & 24 \\
-Hybrid        & \textbf{2.2462} & \textbf{1.5851} & 1.8531 & 24 \\
-Competitive   & 0.9876 & 0.2659 & 0.5610 & 24 \\
-Random        & 0.9878 & 0.2612 & 0.7655 & 24 \\
-No-broadcast  & 0.0000 & 0.0000 & 0.0000 & 24 \\
+Collaborative & --- & --- & --- & --- \\
+Hybrid        & --- & --- & --- & --- \\
+Competitive   & --- & --- & --- & --- \\
+Random        & --- & --- & --- & --- \\
+Single-proc.  & --- & --- & --- & --- \\
+No-broadcast  & --- & --- & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Hypothesis Tests}
 
-We applied Mann--Whitney $U$ tests (one-tailed, $\alpha = 0.05$) to test the
-hypotheses in Equation~\eqref{eq:hypothesis}. Results are summarized in
-Table~\ref{tab:tests}.
-%%% TABLE PLACEHOLDER
+Pairwise Mann--Whitney $U$ tests (one-tailed, $\alpha = 0.05$) will be applied to
+test the hypothesis ordering in Equation~\eqref{eq:hypothesis}. Results will be
+summarized in Table~\ref{tab:tests}.
+
 \begin{table}[H]
-\caption{Mann--Whitney $U$ test results for pairwise mode comparisons of $\Delta\Phi$.}
+\caption{Mann--Whitney $U$ test results. \textbf{Placeholder.}}
 \label{tab:tests}
 \centering
 \begin{tabular}{llccc}
 \toprule
-\textbf{Comparison} & \textbf{Hypothesis} & \textbf{$U$} & \textbf{$p$-value} & \textbf{Supported} \\
+\textbf{Comparison} & \textbf{Hypothesis} & \textbf{$U$} & \textbf{$p$} & \textbf{Supported} \\
 \midrule
-Collaborative vs.\ Competitive & H1: CGWT $>$ GWT   & 576.0 & $<$0.001 & \textbf{Yes} \\
-Collaborative vs.\ Random      & H2: Collab $>$ Rand & 576.0 & $<$0.001 & \textbf{Yes} \\
-Hybrid vs.\ Competitive         & H3: Hybrid $>$ Comp & 576.0 & $<$0.001 & \textbf{Yes} \\
-Competitive vs.\ Random         & H4: Comp $>$ Rand   & 289.0 & 0.481    & No  \\
-Competitive vs.\ No-broadcast   & H5: Broadcast $>$ None & 576.0 & $<$0.001 & \textbf{Yes} \\
+Collaborative vs.\ Competitive & H1: CGWT $>$ GWT   & --- & --- & --- \\
+Collaborative vs.\ Random      & H2: Collab $>$ Rand & --- & --- & --- \\
+Hybrid vs.\ Competitive         & H3: Hybrid $>$ Comp & --- & --- & --- \\
+Competitive vs.\ Random         & H4: Comp $>$ Rand   & --- & --- & --- \\
+Competitive vs.\ No-broadcast   & H5: Broadcast $>$ None & --- & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{$\Phi$ Trajectory Analysis}
+\subsection{Expected Patterns}
 
-Collaborative and hybrid modes yielded mean $\Delta\Phi = 1.57$ and $1.59$ respectively,
-compared to $0.27$ (competitive), $0.26$ (random), and $0.00$ (no-broadcast).
-The collaborative mode consistently shows the highest post-broadcast $\Phi$ values,
-consistent with the CGWT prediction that coalition integration creates richer
-causal structure than single-winner broadcast. The near-identical performance of
-competitive ($\Delta\Phi = 0.266$) and random ($\Delta\Phi = 0.261$) modes
-reveals that standard GWT's competitive selection mechanism adds negligible $\Phi$
-benefit over random selection---the critical factor is the \textit{coalition}
-structure itself, not attentional competition.
-
-\subsection{World Model Convergence}
-
-The world model's consensus concept count grows across cycles, indicating progressive
-convergence of the shared representation. Agent disagreement stabilizes after
-3--5 cycles, consistent with the emergence of a stable coalition structure.
-This convergence is faster under the collaborative mode than under the hybrid mode,
-suggesting that unconstrained coalition formation leads to more efficient
-shared-representation building.
+Based on theoretical predictions, we expect:
+\begin{enumerate}
+\item $\Phi_{\text{collaborative}} > \Phi_{\text{competitive}}$ if coalition broadcast
+creates richer causal structure than single-winner broadcast.
+\item $\Phi_{\text{competitive}} \approx \Phi_{\text{random}}$ if the competitive
+selection mechanism itself does not significantly increase causal integration over
+random selection (consistent with the H4 null result found in the LLM-based pilot).
+\item $\Phi_{\text{no-broadcast}} \approx 0$ as a lower-bound control.
+\item $\Phi$ should peak at the moment of coalition broadcast and decay during cycles
+without broadcast.
+\item Sensitivity analysis should show that the relative ordering of modes is robust
+to moderate variations in $\Phi$ component weights.
+\end{enumerate}
 
 
 \section{Discussion}
@@ -409,87 +491,110 @@ shared-representation building.
 
 \subsection{Implications for Consciousness Theory}
 
-Our results support the view that competitive winner-take-all selection is not the
-most efficient mechanism for generating high-$\Phi$ states. Coalition broadcast,
-by jointly representing multiple coherent perspectives, produces workspace states
-with richer causal interdependencies---precisely the structural property that IIT
-identifies with consciousness. This finding provides computational support for
-the synergistic workspace hypothesis of Luppi et al.~\cite{luppi2024}, who showed
-empirically that conscious content in the human brain is encoded synergistically
-across neural regions.
+If coalition consensus broadcast produces higher $\Phi$ than competitive winner-take-all,
+this would provide computational support for the synergistic workspace hypothesis of
+Luppi et al.~\cite{luppi2024} and suggest a potential resolution to the empirical
+failures reported by Ferrante et al.~\cite{ferrante2025}. If the actual neural broadcast
+mechanism involves structured coordination among multiple neural populations rather than
+singular ignition, both IIT's $\Phi$ measurement point and GNWT's ignition prediction
+would be systematically misaligned with the underlying mechanism.
 
-The failure of both IIT and GNWT in the adversarial testing study~\cite{ferrante2025}
-may be partly explained by CGWT: if the actual broadcast mechanism involves
-structured coordination among multiple neural populations rather than ignition of
-a single winner, the ``point of $\Phi$ measurement'' in IIT would be misidentified,
-and the GNWT prediction of singular ignition would be systematically violated.
-CGWT predicts a more distributed, sustained activation pattern---consistent with
-what Ferrante et al. actually observed.
+The use of recurrent neural processors with directly measurable causal structure
+distinguishes this work from prior computational approaches that rely on linguistic
+agents or abstract models. The causal TPM, built from actual neural state transitions,
+provides a principled basis for effective information computation that is closer to
+IIT's theoretical requirements.
 
 \subsection{Connection to Free Energy Principle}
 
-The CGWT world model has a natural interpretation in FEP terms~\cite{friston2010,kearney2026}:
-it encodes the collective prediction of the agent coalition, and the prediction-error
-term in the consensus controller score (Equation~\eqref{eq:score}) drives selection
-toward novel-but-coherent coalition broadcasts. This is structurally identical to
-minimizing collective free energy: the coalition broadcast that minimizes aggregate
-prediction error while maximizing information integration is selected.
+The CGWT world model has a natural FEP interpretation~\cite{friston2010,kearney2026}:
+it encodes the collective prediction of the processor coalition, and the prediction-error
+term in the consensus controller drives selection toward novel-but-coherent coalition
+broadcasts. This is structurally identical to minimizing collective free energy:
+the coalition broadcast that simultaneously minimizes aggregate prediction error and
+maximizes information integration is selected.
 
-Kearney's mathematical bridge~\cite{kearney2026} implies that high-$\Phi$ states
-are also states of low free energy for the agent coalition, providing a unified
-optimization criterion: \textit{conscious broadcast is the coalition broadcast
-that simultaneously minimizes collective prediction error and maximizes integrated
-information.}
+\subsection{World Model as Causal Scaffold}
 
-\subsection{Limitations and Future Work}
+The world model serves not merely as a scoring mechanism but as a \textit{causal scaffold}
+for coalition formation. By maintaining a shared epistemic state across cycles, it enables
+processors to build on prior consensus, potentially creating a positive feedback loop
+where successful coalitions strengthen the shared representation, which in turn enables
+more coherent future coalitions. This dynamical aspect of CGWT---the temporal evolution
+of the world model and its effect on coalition quality---warrants dedicated study.
 
-Several limitations of the current implementation should be noted. First, the
-$\Phi$ proxy remains an approximation; exact $\Phi$ computation is infeasible
-for systems of this scale~\cite{barrett2026}. Future work should validate the
-proxy's correlation with exact $\Phi$ on smaller systems where both are computable.
-Second, the agent framework uses language models as cognitive proxies; while this
-approach has been validated by Phua~\cite{phua2025}, the mapping from LLM-based
-agents to biological neural populations is indirect. Third, the coalition size
-is currently limited to $k = 2$; exploring larger coalitions and dynamic coalition
-formation would provide a more complete test of the theory.
+\subsection{Limitations}
 
-Future work should extend CGWT to incorporate: (1) hierarchical coalition structures
-(coalitions of coalitions), analogous to the laminar hierarchy of cortical broadcast;
-(2) temporal dynamics of coalition formation and dissolution across longer stimulus
-sequences; and (3) application to disorders of consciousness, where coalition
-broadcast disruption may provide a computationally tractable model of vegetative
-state and minimally conscious state~\cite{tononi2015}.
+Several limitations should be noted. First, $\Phi$ as computed here remains a tractable
+approximation; exact $\Phi$ for a system of 1280 neurons is computationally infeasible.
+The discretization via clustering and the use of a fixed-component-weight formula
+introduce approximations whose impact on the validity of mode comparisons should be
+assessed through sensitivity analysis.
+
+Second, the recurrent neural processors are deliberately simple---they lack the
+hierarchical structure, synaptic plasticity, and neuromodulatory mechanisms of
+biological neural systems. The spectral-radius constraint ($\rho(W_{\text{rec}}) < 1$)
+ensures stable dynamics but may limit the richness of possible attractor landscapes.
+The mapping from these abstract processors to biological neural populations is a
+modeling choice that should be interpreted as a minimal computational testbed rather
+than a direct neural simulation.
+
+Third, the stimulus encoding is deliberately impoverished (hash-based random projection
+rather than semantic embedding). This is by design: we aim to isolate the causal
+structure of the processor dynamics from the semantic content of the stimuli. However,
+richer encoding schemes may reveal stimulus-dependent effects that the current approach
+cannot detect.
+
+Fourth, the current coalition size is fixed; dynamic coalition formation where the
+optimal coalition size emerges from the data would provide a stronger test of the theory.
+
+\subsection{Future Work}
+
+Future work should extend CGWT in several directions: (1) hierarchical coalition
+structures (coalitions of coalitions), analogous to the laminar organization of cortical
+broadcast; (2) Hebbian plasticity in $W_{\text{rec}}$ to study how coalition dynamics
+shape processor specialization over time; (3) spiking neural network implementations
+for closer biological fidelity; (4) application to disorders of consciousness, where
+coalition broadcast disruption may provide a computationally tractable model of
+pathological states; and (5) validation on small systems where exact $\Phi$ can be
+computed for comparison with the proxy measure.
 
 
 \section{Conclusions}
 \label{sec:conclusions}
 
-We introduced Collaborative Global Workspace Theory (CGWT), a computational
-extension of GWT that replaces winner-take-all broadcast with coalition consensus
-broadcast grounded in a shared world model. Experiments across 120 cycles in a
-multi-agent language model framework demonstrate that collaborative coalition
-broadcast produces significantly higher integrated information $\Phi$ than competitive
-single-winner broadcast, supporting the hypothesis:
-$\Phi_{\text{collaborative}} > \Phi_{\text{competitive}} > \Phi_{\text{random}} > \Phi_{\text{no-broadcast}}$.
+We introduced Collaborative Global Workspace Theory (CGWT), a computational extension
+of GWT that replaces winner-take-all broadcast with coalition consensus broadcast
+grounded in a shared world model. The theory is implemented in a minimal recurrent
+neural processor system where $\Phi$ is computed from neural activation state transition
+probability matrices---providing genuine causal structure for testing GWT--IIT
+integration hypotheses.
 
-CGWT provides a computationally tractable bridge between GWT and IIT, consistent
-with the synergistic workspace hypothesis and the IIT--FEP mathematical bridge.
-It offers a potential resolution to the empirical failures of both theories in
-adversarial testing, predicting distributed, sustained broadcast patterns rather
-than singular ignition. The framework is open-source and extensible for future
-comparative studies of consciousness mechanisms.
+The framework distinguishes itself from prior computational approaches by:
+(1) using recurrent neural processors with explicitly defined causal connectivity
+rather than linguistic agents; (2) computing $\Phi$ from neural activation TPMs rather
+than token-distribution proxies; and (3) providing a unified $\Phi$ measurement formula
+applicable across all experimental modes.
+
+CGWT contributes a computationally tractable testbed for the central question at
+the intersection of GWT and IIT: whether broadcast mechanisms can produce high-$\Phi$
+states, and whether coalition consensus is more effective than winner-take-all competition
+at doing so. The framework is open-source and designed for extensibility, supporting
+future comparative studies of consciousness mechanisms in systems with measurable
+causal structure.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \vspace{6pt}
 
 \authorcontributions{Conceptualization, methodology, software, investigation,
-writing---original draft, G.A.; writing---review \& editing, G.A.
-The author has read and agreed to the published version of the manuscript.}
+writing---original draft, G.A. The author has read and agreed to the published
+version of the manuscript.}
 
 \funding{This research received no external funding.}
 
 \dataavailability{The source code and experimental data are available at
-\url{https://github.com/guyu-adam/noesis}.}
+\url{https://github.com/guyu-adam/noesis} (main branch). Experimental data
+will be deposited upon publication.}
 
 \conflictsofinterest{The author declares no conflict of interest.}
 
@@ -558,6 +663,16 @@ and Robustness. \textit{arXiv} \textbf{2025}, arXiv:2512.19155.
 Kearney, A. Information as Maximum-Caliber Deviation: A Bridge between
 Integrated Information Theory and the Free Energy Principle.
 \textit{arXiv} \textbf{2026}, arXiv:2605.12536.
+
+\bibitem{iwmt2020}
+Safron, A. Integrated World Modeling Theory (IWMT) Expanded: Implications for
+Theories of Consciousness and Artificial Intelligence.
+\textit{Frontiers in Artificial Intelligence} \textbf{2020}, \textit{3}, 1--16.
+\url{https://doi.org/10.3389/frai.2020.00020}
+
+\bibitem{godelos2025}
+Steake, J. GodelOS: A Consciousness Operating System for LLMs.
+\textit{GitHub} \textbf{2025}. \url{https://github.com/steake/godel-os}
 
 \end{thebibliography}
 \end{adjustwidth}

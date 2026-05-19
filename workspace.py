@@ -1,9 +1,9 @@
 """
 Global Workspace + Attention Controller.
 
-Core GWT mechanism: multiple specialized agents produce proposals;
+Core GWT mechanism: multiple specialized processors produce proposals;
 the attention controller picks a winner; if salience exceeds the
-ignition threshold, the winner is broadcast to all agents.
+ignition threshold, the winner is broadcast to all processors.
 
 Key mechanisms from GWT neuroscience (Dehaene et al.):
   1. Bottom-up salience (novelty, surprise, intensity)
@@ -45,7 +45,7 @@ class GlobalWorkspace:
         from world_model import WorldModel
         self.world_model = WorldModel()
 
-    def broadcast(self, agent_name: str, content: str, attention_score: float = 0) -> dict:
+    def broadcast(self, processor_name: str, content: str, attention_score: float = 0) -> dict:
         """
         Place content into the global workspace — the moment of conscious access.
         """
@@ -53,7 +53,7 @@ class GlobalWorkspace:
             self._cycle_count += 1
             entry = {
                 "cycle": self._cycle_count,
-                "agent": agent_name,
+                "processor": processor_name,
                 "content": content,
                 "attention_score": round(attention_score, 4),
                 "time": time.time(),
@@ -65,7 +65,7 @@ class GlobalWorkspace:
             content_hash = _content_fingerprint(content)
             self.suppressed.add(content_hash)
 
-        self.memory.store(f"broadcast:{agent_name}", content)
+        self.memory.store(f"broadcast:{processor_name}", content)
         return entry
 
     def is_suppressed(self, content: str) -> bool:
@@ -76,13 +76,13 @@ class GlobalWorkspace:
         return self.current_content
 
     def get_context(self, n: int = 3) -> str:
-        """Build context string of recent broadcasts for agent prompts."""
+        """Build context string of recent broadcasts for processor prompts."""
         if not self.history:
             return ""
         recent = self.history[-n:]
         lines = []
         for h in recent:
-            lines.append(f"[Cycle {h.get('cycle', '?')}] [{h['agent']}] "
+            lines.append(f"[Cycle {h.get('cycle', '?')}] [{h['processor']}] "
                          f"(salience={h.get('attention_score', 0):.2f}) "
                          f"{h['content'][:200]}")
         return "\n".join(lines)
@@ -91,7 +91,7 @@ class GlobalWorkspace:
         return self._cycle_count
 
     def read_vec(self):
-        """Return current workspace state as a vector for neural agent consumption."""
+        """Return current workspace state as a vector for neural processor consumption."""
         import numpy as np
         if self.current_content:
             return np.array([ord(c) / 128.0 for c in self.current_content[:32]] + [0] * 32)[:32]
@@ -116,12 +116,12 @@ def _content_fingerprint(content: str, ngram: int = 3) -> str:
 
 class AttentionController:
     """
-    Decides which agent's proposal wins conscious access.
+    Decides which processor's proposal wins conscious access.
 
     Combines:
       - Bottom-up salience: novelty (memory distance), surprise, intensity
       - Top-down relevance: goal alignment
-      - Affective weight: emotional charge from evaluator agent
+      - Affective weight: emotional charge from evaluator processor
 
     Plus GWT-specific mechanisms:
       - Global ignition threshold (broadcast requires crossing threshold)
@@ -146,7 +146,7 @@ class AttentionController:
         workspace_for_suppression=None,
     ) -> tuple[str, str, float]:
         """
-        Select a winner from agent proposals.
+        Select a winner from processor proposals.
 
         Returns:
             (winner_name, winner_content, attention_score)
@@ -286,7 +286,7 @@ class ConsensusController:
     Collaborative attention mechanism for the Collaborative Global Workspace.
 
     Unlike AttentionController (winner-take-all), ConsensusController selects
-    a coalition of agents whose outputs achieve sufficient mutual agreement,
+    a coalition of processors whose outputs achieve sufficient mutual agreement,
     then merges their contributions into a unified broadcast.
 
     Three-stage process:
@@ -298,7 +298,7 @@ class ConsensusController:
     because the merged state has more causal connections (higher irreducibility).
 
     Parameters:
-        coalition_size: Maximum agents in a coalition (default 2).
+        coalition_size: Maximum processors in a coalition (default 2).
         agreement_threshold: Minimum pairwise agreement for coalition (0-1).
         world_model_weight: How much world model score influences selection.
     """
@@ -319,7 +319,7 @@ class ConsensusController:
         workspace_for_suppression=None,
     ) -> tuple[list[str], str, float]:
         """
-        Select a coalition of agents for collaborative broadcast.
+        Select a coalition of processors for collaborative broadcast.
 
         Returns:
             (coalition_names, merged_content, consensus_score)
@@ -372,10 +372,10 @@ class ConsensusController:
 
 class CollaborativeWorkspace(GlobalWorkspace):
     """
-    Extended global workspace supporting collaborative (multi-agent) broadcast.
+    Extended global workspace supporting collaborative (multi-processor) broadcast.
 
     Inherits all standard GWT mechanisms from GlobalWorkspace, adds:
-      - collaborative_broadcast(): multi-agent coalition enters workspace jointly
+      - collaborative_broadcast(): multi-processor coalition enters workspace jointly
       - World model integration (updated each cycle)
       - Coalition history tracking
     """
@@ -397,14 +397,14 @@ class CollaborativeWorkspace(GlobalWorkspace):
         Broadcast the merged output of a coalition into the global workspace.
 
         This replaces winner-take-all broadcast with coalition-consensus broadcast:
-        multiple agents jointly contribute, their merged representation becomes
+        multiple processors jointly contribute, their merged representation becomes
         globally available.
         """
         with self._lock:
             self._cycle_count += 1
             entry = {
                 "cycle": self._cycle_count,
-                "agent": f"coalition:{'+'.join(coalition_names)}",
+                "processor": f"coalition:{'+'.join(coalition_names)}",
                 "coalition": coalition_names,
                 "content": merged_content,
                 "attention_score": round(consensus_score, 4),
@@ -436,9 +436,9 @@ class CollaborativeWorkspace(GlobalWorkspace):
 
 def _pairwise_agreement(content_a: str, content_b: str) -> float:
     """
-    Measure semantic agreement between two agent outputs via Jaccard similarity.
+    Measure semantic agreement between two processor outputs via Jaccard similarity.
 
-    High agreement → agents share common ground → coalition is coherent.
+    High agreement → processors share common ground → coalition is coherent.
     Low agreement → outputs are orthogonal → no coalition benefit.
     """
     if not content_a or not content_b:
@@ -454,10 +454,10 @@ def _pairwise_agreement(content_a: str, content_b: str) -> float:
 
 def _merge_coalition(contents: list[str], max_tokens: int = 300) -> str:
     """
-    Merge multiple agent outputs into a unified coalition representation.
+    Merge multiple processor outputs into a unified coalition representation.
 
     Strategy: extract consensus concepts (tokens appearing in majority of outputs)
-    and concatenate unique high-information segments from each agent.
+    and concatenate unique high-information segments from each processor.
 
     This preserves both shared ground (consensus) and complementary perspectives
     (diversity) — the key structural property enabling high-Φ coalition states.
@@ -484,7 +484,7 @@ def _merge_coalition(contents: list[str], max_tokens: int = 300) -> str:
     # Part 1: first output (highest scoring) as anchor
     merged_parts.append(contents[0])
 
-    # Part 2: unique sentences from each additional agent
+    # Part 2: unique sentences from each additional processor
     for content in contents[1:]:
         sentences = [s.strip() for s in content.replace('.', '.\n').split('\n') if s.strip()]
         for sent in sentences:

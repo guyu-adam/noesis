@@ -1,9 +1,10 @@
 """
-Neural agent base class — recurrent neural network with optional GPU acceleration.
+Neural processor base class — recurrent neural network with optional GPU acceleration.
 
-Unlike the LLM-based BaseAgent, NeuralAgent uses an RNN with real causal structure.
-Each agent is a dynamical system of recurrently connected neurons. The agent's
-"proposal" is its hidden-state activation pattern after processing a stimulus.
+Each processor is a small RNN with real causal structure — a dynamical system
+of recurrently connected neurons. The processor's "proposal" is its hidden-state
+activation pattern after processing a stimulus. Uses "processor" to align
+with GWT's original "specialized processor" terminology (Baars, Dehaene).
 
 This is the foundation for computing genuine Φ (integrated information)
 from neural state transition matrices — not token-distribution proxies.
@@ -20,8 +21,8 @@ Where:
     b ∈ R^{n_neurons} — bias
 
 Hardware scaling (auto-detected):
-    5060Ti 16GB → 256 neurons/agent default
-    <6GB VRAM   → 64 neurons/agent
+    5060Ti 16GB → 256 neurons/processor default
+    <6GB VRAM   → 64 neurons/processor
     No GPU      → CPU fallback via numpy
 """
 
@@ -56,16 +57,16 @@ def _to_numpy(arr) -> np.ndarray:
     return np.asarray(arr, dtype=np.float32)
 
 
-class NeuralAgent(ABC):
+class NeuralProcessor(ABC):
     """
-    Abstract neural agent — RNN with recurrent causal structure.
+    Abstract neural processor — RNN with recurrent causal structure.
 
-    Each agent maintains:
-      - Fixed recurrent weights (initialized once, with Hebbian plasticity)
+    Each processor maintains:
+      - Fixed recurrent weights (initialized once)
       - Internal state history (for building causal TPMs)
       - Short-term activation memory (primes future processing)
 
-    The recurrent weight matrix W_rec defines the agent's causal structure —
+    The recurrent weight matrix W_rec defines the processor's causal structure —
     this is what Φ (effective information) measures.
 
     Parameters:
@@ -222,7 +223,7 @@ class NeuralAgent(ABC):
     def __repr__(self):
         sr = self._spectral_radius()
         backend = "GPU" if _GPU else "CPU"
-        return (f"<NeuralAgent {self.role} | {self.n_neurons} neurons "
+        return (f"<NeuralProcessor {self.role} | {self.n_neurons} neurons "
                 f"[{backend}] | ρ(W_rec)={sr:.3f} | {self.cycle_count} cycles>")
 
     def _spectral_radius(self) -> float:
@@ -237,7 +238,7 @@ class NeuralAgent(ABC):
 
 def encode_stimulus(text: str, dim: int = None, seed: int = 42) -> np.ndarray:
     """
-    Encode a text stimulus into a fixed-dim vector for neural agents.
+    Encode a text stimulus into a fixed-dim vector for neural processors.
 
     Uses deterministic hashing + random projection. Same text always
     produces the same vector (reproducible). Different texts produce

@@ -2,7 +2,7 @@
 Tests for neural_iit.py — neural Φ computation from activation TPMs.
 
 These verify that the core mathematical functions produce correct outputs
-for known inputs (identical, independent, empty, single-agent, etc.).
+for known inputs (identical, independent, empty, single-processor, etc.).
 """
 
 import numpy as np
@@ -140,17 +140,17 @@ def test_neural_mutual_information_single():
 
 # ── Neural Φ ─────────────────────────────────────────────────────────
 
-def test_neural_phi_no_agents():
-    """Φ with no agent proposals should be 0."""
+def test_neural_phi_no_processors():
+    """Φ with no processor proposals should be 0."""
     workspace_vec = np.random.randn(16)
     phi = neural_phi(workspace_vec, {})
     assert phi == 0.0
 
 
-def test_neural_phi_single_agent():
-    """Φ with single agent should produce a valid non-negative value."""
+def test_neural_phi_single_processor():
+    """Φ with single processor should produce a valid non-negative value."""
     workspace_vec = np.random.randn(16)
-    proposals = {"agent_a": np.random.randn(32)}
+    proposals = {"processor_a": np.random.randn(32)}
     phi = neural_phi(workspace_vec, proposals)
     assert phi >= 0.0
 

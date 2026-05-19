@@ -7,17 +7,17 @@ This is the CORE distinction between main and noesis-llm branches:
     main (neural_iit.py):    Φ from neural activation TPM  ← causal Φ
 
 The neural version computes Φ from the actual causal structure of the
-multi-agent neural system. Each agent is a small RNN; the global workspace
+multi-processor neural system. Each processor is a small RNN; the global workspace
 integrates their hidden-state activations. Φ measures the irreducibility
-of the global state to individual agent states.
+of the global state to individual processor states.
 
 Key references (same as iit.py, but applied to neural states):
   - Tononi (2004, 2016): IIT proper — Φ from cause-effect structure
   - Barrett et al. (2026): Φ is not well-defined for real systems; we compute
-    a tractable approximation on a small (32-neuron) system where TPM is exact
+    a tractable approximation on a small (256-neuron) system where TPM is exact
   - Kearney (2026): MaxCal bridge between IIT and FEP
 
-For a system with N neurons per agent and M agents, the full state space is
+For a system with N neurons per processor and M processors, the full state space is
 R^(N*M). We discretize via thresholding (each neuron is binary: on/off at
 each time step) to get a tractable TPM of size 2^(N*M) → reduced via
 clustering to k states.
@@ -210,7 +210,7 @@ def neural_mutual_information(
 
 def neural_phi(
     workspace_activation: np.ndarray,
-    agent_proposals: dict[str, np.ndarray],
+    processor_proposals: dict[str, np.ndarray],
     workspace_history: list[dict],
     n_state_clusters: int = 10,
 ) -> float:
@@ -222,35 +222,35 @@ def neural_phi(
       - TPM is built from discretized neural states (not token-content states)
       - MI is computed from activation time series (not token distributions)
 
-    Φ ≈ MI(workspace; all agents jointly) − Σ MI(workspace; agent_i) / n
+    Φ ≈ MI(workspace; all processors jointly) − Σ MI(workspace; processor_i) / n
 
     This captures IRREDUCIBILITY: how much information the global state contains
-    that cannot be reduced to individual agent contributions.
+    that cannot be reduced to individual processor contributions.
 
     Args:
         workspace_activation: Current global workspace activation (n_neurons,).
-        agent_proposals: {agent_name: activation_vector}.
+        processor_proposals: {processor_name: activation_vector}.
         workspace_history: List of past broadcast entries with 'content_vec'.
         n_state_clusters: Number of clusters for state discretization.
 
     Returns:
         Φ value (0 = fully reducible to parts, higher = more integrated).
     """
-    if not agent_proposals:
+    if not processor_proposals:
         return 0.0
 
     # Component 1: Irreducible mutual information
-    # I(workspace; all agents) - average I(workspace; agent_i)
-    all_agent_concat = np.concatenate([p.flatten() for p in agent_proposals.values()])
-    # Re-express as: worksapce variance unexplained by individual agents
-    mi_joint = _activation_mi_joint(workspace_activation, all_agent_concat)
+    # I(workspace; all processors) - average I(workspace; processor_i)
+    all_processor_concat = np.concatenate([p.flatten() for p in processor_proposals.values()])
+    # Re-express as: workspace variance unexplained by individual processors
+    mi_joint = _activation_mi_joint(workspace_activation, all_processor_concat)
     mi_parts = sum(
         _activation_mi_pairwise(workspace_activation, p)
-        for p in agent_proposals.values()
+        for p in processor_proposals.values()
     )
 
-    n_agents = max(len(agent_proposals), 1)
-    mi_integration = max(0.0, mi_joint - mi_parts / n_agents)
+    n_processors = max(len(processor_proposals), 1)
+    mi_integration = max(0.0, mi_joint - mi_parts / n_processors)
 
     # Component 2: Effective information from causal TPM
     if workspace_history and len(workspace_history) >= 2:
@@ -266,9 +266,9 @@ def neural_phi(
         ei = 0.0
 
     # Component 3: Activation complexity (differentiation)
-    # Higher variance across agents → more differentiated → higher Φ potential
-    agent_stds = [np.std(p) for p in agent_proposals.values() if len(p) > 0]
-    differentiation = np.mean(agent_stds) if agent_stds else 0.0
+    # Higher variance across processors → more differentiated → higher Φ potential
+    processor_stds = [np.std(p) for p in processor_proposals.values() if len(p) > 0]
+    differentiation = np.mean(processor_stds) if processor_stds else 0.0
     differentiation = min(1.0, differentiation)
 
     # Weighted combination
@@ -278,7 +278,7 @@ def neural_phi(
 
 
 def _activation_mi_joint(a: np.ndarray, b_concat: np.ndarray) -> float:
-    """MI between workspace activation and concatenated agent activations."""
+    """MI between workspace activation and concatenated processor activations."""
     if len(a) == 0 or len(b_concat) == 0:
         return 0.0
     # Use correlation-based MI approximation for continuous vectors

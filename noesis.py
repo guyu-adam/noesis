@@ -1,13 +1,13 @@
 """
 Noesis — A computational framework for GWT–IIT integration.
 
-Multi-agent consciousness simulation where specialized agents compete
-for global workspace access. Φ (integrated information) is measured
-across broadcast cycles to test whether GWT mechanisms produce high-Φ states.
+Computational consciousness framework: specialized processors compete for
+global workspace access. Φ (integrated information) is measured across
+broadcast cycles to test whether GWT mechanisms produce high-Φ states.
 
-Two agent backends:
+Two backends:
   - LLM agents (noesis-llm branch): Ollama-based, token-distribution Φ proxy
-  - Neural agents (main branch): Small RNNs, causal TPM-based Φ
+  - Neural processors (main branch): Small RNNs, causal TPM-based Φ
 
 Two theories, one computational testbed.
 """
@@ -227,7 +227,7 @@ def get_profile():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Neural experiment endpoints — main branch (small RNN agents, real causal Φ)
+# Neural experiment endpoints — main branch (RNN processors, causal TPM-based Φ)
 # ══════════════════════════════════════════════════════════════════════════════
 
 _neural_state = None
@@ -243,7 +243,7 @@ def _get_neural_state():
 @app.route("/neural/run", methods=["POST"])
 def neural_run():
     """
-    Run one neural GWT+IIT cycle using small RNN agents.
+    Run one neural GWT+IIT cycle using small RNN processors.
 
     Request:
         {
@@ -349,13 +349,13 @@ def neural_compare():
 def neural_reset():
     global _neural_state
     _neural_state = ExperimentState()
-    from agents.neural_base import NeuralAgent
-    from experiment import _neural_agent_cache
-    for agent in _neural_agent_cache.values():
-        if isinstance(agent, NeuralAgent):
-            agent.reset_state()
+    from agents.neural_base import NeuralProcessor
+    from experiment import _neural_processor_cache
+    for proc in _neural_processor_cache.values():
+        if isinstance(proc, NeuralProcessor):
+            proc.reset_state()
     workspace.reset()
-    return jsonify({"reset": True, "agent_type": "neural_rnn"})
+    return jsonify({"reset": True, "processor_type": "neural_rnn"})
 
 
 # Global reference for agent cache (used by reset)
@@ -382,7 +382,8 @@ if __name__ == "__main__":
         gpu_line = "[bold yellow]GPU:[/bold yellow] none (CPU-only)"
 
     n_default = int(os.environ.get("NOESIS_N_NEURONS", "256"))
-    n_agents_default = int(os.environ.get("NOESIS_N_AGENTS", "5"))
+    n_proc_default = int(os.environ.get("NOESIS_N_PROCESSORS",
+                          os.environ.get("NOESIS_N_AGENTS", "5")))
 
     threading.Thread(
         target=lambda: app.run(host="0.0.0.0", port=7860, threaded=True),
@@ -392,11 +393,11 @@ if __name__ == "__main__":
     console.print(Panel(
         "[bold cyan]Noesis v0.3[/bold cyan]  ·  GWT–IIT Integration Framework\n\n"
         f"  {gpu_line}\n"
-        f"  [bold]Neural:[/bold] {n_default} neurons/agent × {n_agents_default} agents "
-        f"= {n_default * n_agents_default} total\n"
+        f"  [bold]Neural:[/bold] {n_default} neurons/processor × {n_proc_default} processors "
+        f"= {n_default * n_proc_default} total\n"
         f"  [bold]Backend:[/bold] {'CuPy GPU' if _HAS_GPU else 'NumPy CPU'}\n\n"
         "[bold]Neural Endpoints (main branch):[/bold]\n"
-        "  [cyan]POST /neural/run[/cyan]          — run one cycle (RNN, causal Phi)\n"
+        "  [cyan]POST /neural/run[/cyan]          — run one cycle (RNN processors, causal Phi)\n"
         "  [cyan]POST /neural/compare[/cyan]      — comparison (all modes)\n"
         "  [cyan]POST /neural/reset[/cyan]        — reset neural experiment\n\n"
         "[bold]LLM Endpoints (legacy):[/bold]\n"
