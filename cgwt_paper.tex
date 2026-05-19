@@ -412,13 +412,20 @@ across all experimental modes.
 
 \subsection{Protocol}
 
-[TO BE FILLED with actual experimental protocol after data collection.]
+Twenty stimuli are used: 8 drawn from consciousness research topics (to maintain
+comparability with prior computational studies) and 12 from multi-agent coordination
+topics (to assess generalizability beyond the cognitive domain). The full list is
+available in the repository. Each stimulus is processed for 5 cycles per mode:
+$20 \text{ stimuli} \times 5 \text{ cycles} \times 5 \text{ modes} = 500$
+total experimental cycles (100 per mode).
 
-Each stimulus is processed for $c$ cycles per mode. With $s$ stimuli $\times$ $c$ cycles
-$\times$ $m$ modes = [TO BE FILLED] total experimental cycles. Each cycle records:
-$\Phi$ before broadcast, $\Phi$ after broadcast, $\Delta\Phi$, Fisher information trace,
-activation complexity, and coalition composition (for collaborative modes). Workspaces
-and processor states are reset between modes to ensure statistical independence.
+Each cycle records: $\hat{\Phi}_{\text{before}}$, $\hat{\Phi}_{\text{after}}$,
+$\Delta\hat{\Phi}$, Fisher information trace, activation complexity, coalition
+composition (for collaborative modes), and narrative summary. Workspaces and
+processor states are reset between modes to ensure statistical independence.
+Results are saved per-cycle to \texttt{experiments/<date>/<mode>.jsonl} for
+reproducibility. Hardware: NVIDIA RTX\,5060\,Ti\,16\,GB (processor inference);
+CPU for workspace and $\hat{\Phi}$ computations.
 
 \subsection{Sensitivity Analysis}
 
