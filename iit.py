@@ -324,17 +324,19 @@ def phi_collaborative(
     coalition_names: list[str],
 ) -> float:
     """
-    Φ measurement for a collaborative coalition broadcast (CGWT extension).
+    Φ for a coalition broadcast — uses the IDENTICAL formula as phi_proxy.
 
-    Key difference from phi_proxy:
-      - phi_proxy measures I(workspace ; winner_only)
-      - phi_collaborative measures I(workspace ; coalition_joint) - quantifying
-        the additional integration arising from multi-agent consensus.
+    The only difference from phi_proxy is which proposals are passed to the MI
+    calculation: coalition members' outputs rather than a single winner's output.
+    This makes cross-mode comparisons valid: same ruler, different input.
 
-    The coalition produces a higher-dimensional joint causal state than any
-    single winner, yielding higher irreducibility and thus higher Φ.
+    Theoretical justification: the coalition's merged workspace state is the
+    *joint* causal output of multiple agents, so MI(workspace ; coalition_joint)
+    captures irreducibility across more causal dimensions than a single-winner
+    broadcast. Higher Φ in collaborative mode reflects genuine additional
+    integration, not an artefact of a different weighting scheme.
 
-    This is the central empirical prediction of CGWT:
+    Central CGWT prediction (testable because formula is unified):
         Φ_collaborative > Φ_competitive > Φ_random > Φ_no_broadcast
 
     Args:
@@ -344,68 +346,18 @@ def phi_collaborative(
         coalition_names: Names of agents in the winning coalition.
 
     Returns:
-        Coalition Φ proxy value.
+        Coalition Φ proxy value (same scale as phi_proxy).
     """
     if not proposals or not coalition_names:
         return phi_proxy(workspace_state, history, proposals)
 
     coalition_proposals = {k: v for k, v in proposals.items() if k in coalition_names}
-    non_coalition_proposals = {k: v for k, v in proposals.items() if k not in coalition_names}
+    if not coalition_proposals:
+        return phi_proxy(workspace_state, history, proposals)
 
-    # Component 1: Within-coalition integration
-    # How much information is irreducible within the coalition itself?
-    coalition_mi = 0.0
-    coalition_contents = list(coalition_proposals.values())
-    if len(coalition_contents) >= 2:
-        # Joint MI across all coalition members
-        all_coalition_tokens = []
-        for c in coalition_contents:
-            all_coalition_tokens.extend(_tokenize(c))
-        for c in coalition_contents:
-            mi = mutual_information(_tokenize(c), all_coalition_tokens)
-            coalition_mi += mi
-        # Irreducibility: joint > sum of parts
-        joint_tokens = _tokenize(" ".join(coalition_contents))
-        joint_mi = mutual_information(joint_tokens, all_coalition_tokens)
-        coalition_mi = max(0.0, joint_mi - coalition_mi / len(coalition_contents))
-
-    # Component 2: Global workspace ↔ coalition integration
-    global_tokens = _tokenize(workspace_state or "")
-    if global_tokens and coalition_contents:
-        coalition_joint_tokens = []
-        for c in coalition_contents:
-            coalition_joint_tokens.extend(_tokenize(c))
-        ws_coalition_mi = mutual_information(global_tokens, coalition_joint_tokens)
-    else:
-        ws_coalition_mi = 0.0
-
-    # Component 3: Effective information from richer causal history
-    tpm = state_transition_matrix(history)
-    ei = effective_information(tpm)
-
-    # Component 4: Coalition diversity bonus
-    # More diverse coalition → higher differentiation → higher Φ potential
-    diversity = 0.0
-    if len(coalition_contents) >= 2:
-        from scipy.spatial.distance import jensenshannon as jsd
-        for i in range(len(coalition_contents)):
-            for j in range(i + 1, len(coalition_contents)):
-                p = _distribution(_tokenize(coalition_contents[i]))
-                q = _distribution(_tokenize(coalition_contents[j]))
-                max_len = max(len(p), len(q))
-                p = np.pad(p, (0, max_len - len(p)))
-                q = np.pad(q, (0, max_len - len(q)))
-                diversity += float(jsd(np.clip(p, 1e-10, 1), np.clip(q, 1e-10, 1)))
-        n_pairs = len(coalition_contents) * (len(coalition_contents) - 1) / 2
-        diversity = diversity / n_pairs if n_pairs > 0 else 0.0
-
-    # Weighted coalition Φ: integration + causal structure + diversity
-    phi = (0.35 * coalition_mi
-           + 0.30 * ws_coalition_mi
-           + 0.25 * ei
-           + 0.10 * diversity)
-
-    return round(phi, 6)
+    # Identical formula to phi_proxy, computed over coalition proposals only.
+    # This is the sole methodological difference: coalition joint output vs single winner.
+    return phi_proxy(workspace_state, history, coalition_proposals)
 
 
 def phi_trace(phi_history: list[float]) -> dict:

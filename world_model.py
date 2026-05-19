@@ -20,6 +20,7 @@ The world model records:
 """
 
 import math
+import threading
 from collections import Counter, defaultdict
 from typing import Optional
 
@@ -43,8 +44,8 @@ class WorldModel:
         self.agent_predictions: dict[str, list[str]] = defaultdict(list)
         self.consensus_concepts: Counter = Counter()
         self.disagreement_map: dict[str, float] = {}
-        self.world_embedding: list[float] = []
         self._cycle: int = 0
+        self._lock = threading.Lock()
 
     def update(self, stimulus: str, proposals: dict[str, str]) -> dict:
         """
@@ -57,56 +58,58 @@ class WorldModel:
         Returns:
             World model update summary (used in consensus scoring).
         """
-        self._cycle += 1
-        self.stimulus_history.append(stimulus)
-        if len(self.stimulus_history) > 50:
-            self.stimulus_history = self.stimulus_history[-50:]
+        with self._lock:
+            self._cycle += 1
+            self.stimulus_history.append(stimulus)
+            if len(self.stimulus_history) > 50:
+                self.stimulus_history = self.stimulus_history[-50:]
 
-        # Record each agent's prediction
-        for name, content in proposals.items():
-            self.agent_predictions[name].append(content)
-            if len(self.agent_predictions[name]) > 20:
-                self.agent_predictions[name] = self.agent_predictions[name][-20:]
+            # Record each agent's prediction
+            for name, content in proposals.items():
+                self.agent_predictions[name].append(content)
+                if len(self.agent_predictions[name]) > 20:
+                    self.agent_predictions[name] = self.agent_predictions[name][-20:]
 
-        # Build consensus concept map: tokens that appear in most proposals
-        all_tokens = []
-        per_agent_tokens = {}
-        for name, content in proposals.items():
-            tokens = set(content.lower().split())
-            per_agent_tokens[name] = tokens
-            all_tokens.extend(tokens)
+            # Build consensus concept map: tokens that appear in most proposals
+            all_tokens = []
+            per_agent_tokens = {}
+            for name, content in proposals.items():
+                tokens = set(content.lower().split())
+                per_agent_tokens[name] = tokens
+                all_tokens.extend(tokens)
 
-        token_counts = Counter(all_tokens)
-        n_agents = max(len(proposals), 1)
+            token_counts = Counter(all_tokens)
+            n_agents = max(len(proposals), 1)
 
-        # Concepts endorsed by majority of agents
-        consensus_threshold = n_agents * 0.6
-        new_consensus = {tok for tok, cnt in token_counts.items()
-                         if cnt >= consensus_threshold and len(tok) > 3}
-        self.consensus_concepts.update(new_consensus)
+            # Concepts endorsed by majority of agents
+            consensus_threshold = n_agents * 0.6
+            new_consensus = {tok for tok, cnt in token_counts.items()
+                             if cnt >= consensus_threshold and len(tok) > 3}
+            self.consensus_concepts.update(new_consensus)
 
-        # Disagreement: tokens unique to one agent (high idiosyncrasy)
-        for name, tokens in per_agent_tokens.items():
-            others = set()
-            for other_name, other_tokens in per_agent_tokens.items():
-                if other_name != name:
-                    others |= other_tokens
-            unique = tokens - others
-            self.disagreement_map[name] = len(unique) / max(len(tokens), 1)
+            # Prune low-frequency concepts every 10 cycles to prevent memory leak
+            if self._cycle % 10 == 0:
+                self.consensus_concepts = Counter(
+                    {tok: cnt for tok, cnt in self.consensus_concepts.items() if cnt >= 2}
+                )
 
-        # Update shared embedding (unweighted average of token distributions)
-        self.world_embedding = _average_embedding(
-            [content for content in proposals.values() if content]
-        )
+            # Disagreement: tokens unique to one agent (high idiosyncrasy)
+            for name, tokens in per_agent_tokens.items():
+                others = set()
+                for other_name, other_tokens in per_agent_tokens.items():
+                    if other_name != name:
+                        others |= other_tokens
+                unique = tokens - others
+                self.disagreement_map[name] = len(unique) / max(len(tokens), 1)
 
-        return {
-            "cycle": self._cycle,
-            "consensus_concepts": len(new_consensus),
-            "mean_disagreement": (
-                sum(self.disagreement_map.values()) / n_agents
-                if self.disagreement_map else 0.0
-            ),
-        }
+            return {
+                "cycle": self._cycle,
+                "consensus_concepts": len(new_consensus),
+                "mean_disagreement": (
+                    sum(self.disagreement_map.values()) / n_agents
+                    if self.disagreement_map else 0.0
+                ),
+            }
 
     def get_consensus_score(self, content: str) -> float:
         """
@@ -115,17 +118,17 @@ class WorldModel:
         High consensus score → content resonates with the collective representation.
         Used by ConsensusController to select collaborative broadcast candidates.
         """
-        if not self.consensus_concepts or not content:
-            return 0.5
+        with self._lock:
+            if not self.consensus_concepts or not content:
+                return 0.5
 
-        tokens = set(content.lower().split())
-        relevant = tokens & set(self.consensus_concepts.keys())
-        # Weighted by concept frequency
-        weighted_hits = sum(self.consensus_concepts[tok] for tok in relevant)
-        max_possible = sum(sorted(self.consensus_concepts.values(), reverse=True)[:len(tokens)])
-        if max_possible == 0:
-            return 0.5
-        return min(1.0, weighted_hits / max_possible)
+            tokens = set(content.lower().split())
+            relevant = tokens & self.consensus_concepts.keys()
+            weighted_hits = sum(self.consensus_concepts[tok] for tok in relevant)
+            max_possible = sum(sorted(self.consensus_concepts.values(), reverse=True)[:len(tokens)])
+            if max_possible == 0:
+                return 0.5
+            return min(1.0, weighted_hits / max_possible)
 
     def get_prediction_error(self, agent_name: str, content: str) -> float:
         """
@@ -134,54 +137,28 @@ class WorldModel:
         High error → agent was surprised → content is novel → higher information value.
         Mirrors the free-energy principle: conscious access is triggered by prediction errors.
         """
-        history = self.agent_predictions.get(agent_name, [])
-        if not history:
-            return 0.5
+        with self._lock:
+            history = self.agent_predictions.get(agent_name, [])
+            if not history:
+                return 0.5
 
-        current_tokens = set(content.lower().split())
-        recent = history[-5:]
-        historical_tokens = set()
-        for h in recent:
-            historical_tokens |= set(h.lower().split())
+            current_tokens = set(content.lower().split())
+            recent = history[-5:]
+            historical_tokens = set()
+            for h in recent:
+                historical_tokens |= set(h.lower().split())
 
-        overlap = len(current_tokens & historical_tokens) / max(len(current_tokens), 1)
-        return 1.0 - overlap  # high overlap = low prediction error
+            overlap = len(current_tokens & historical_tokens) / max(len(current_tokens), 1)
+            return 1.0 - overlap
 
     def summary(self) -> dict:
-        return {
-            "cycle": self._cycle,
-            "stimuli_seen": len(self.stimulus_history),
-            "top_consensus_concepts": [
-                tok for tok, _ in self.consensus_concepts.most_common(10)
-            ],
-            "agent_disagreement": dict(self.disagreement_map),
-            "world_embedding_dim": len(self.world_embedding),
-        }
-
-
-def _average_embedding(texts: list[str], vocab_size: int = 200) -> list[float]:
-    """
-    Compute an averaged token-frequency embedding across multiple texts.
-    Simple bag-of-words average — lightweight world model representation.
-    """
-    if not texts:
-        return []
-
-    # Build shared vocabulary (top tokens across all texts)
-    all_tokens = []
-    for t in texts:
-        all_tokens.extend(t.lower().split())
-    vocab = [tok for tok, _ in Counter(all_tokens).most_common(vocab_size)]
-    if not vocab:
-        return []
-
-    embeddings = []
-    for text in texts:
-        counts = Counter(text.lower().split())
-        total = sum(counts.values()) or 1
-        vec = [counts.get(tok, 0) / total for tok in vocab]
-        embeddings.append(vec)
-
-    avg = [sum(emb[i] for emb in embeddings) / len(embeddings)
-           for i in range(len(vocab))]
-    return avg
+        with self._lock:
+            return {
+                "cycle": self._cycle,
+                "stimuli_seen": len(self.stimulus_history),
+                "top_consensus_concepts": [
+                    tok for tok, _ in self.consensus_concepts.most_common(10)
+                ],
+                "agent_disagreement": dict(self.disagreement_map),
+                "consensus_vocab_size": len(self.consensus_concepts),
+            }

@@ -42,6 +42,8 @@ class GlobalWorkspace:
         self.suppress_window: int = 3  # number of cycles to suppress repeats
         self._lock = threading.Lock()
         self._cycle_count: int = 0
+        from world_model import WorldModel
+        self.world_model = WorldModel()
 
     def broadcast(self, agent_name: str, content: str, attention_score: float = 0) -> dict:
         """
