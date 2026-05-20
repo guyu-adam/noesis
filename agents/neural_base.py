@@ -251,8 +251,9 @@ def encode_stimulus(text: str, dim: int = None, seed: int = 42) -> np.ndarray:
     rng = np.random.RandomState(seed)
     tokens = text.lower().split()
     vec = np.zeros(dim, dtype=np.float32)
+    import hashlib
     for i, tok in enumerate(tokens):
-        tok_hash = hash(tok) % 100000
+        tok_hash = int(hashlib.md5(str(tok).encode()).hexdigest(), 16) % 100000
         local_rng = np.random.RandomState(tok_hash)
         vec += local_rng.randn(dim).astype(np.float32) * 0.1 / (i + 1)
     norm = np.linalg.norm(vec)

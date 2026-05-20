@@ -45,9 +45,14 @@ class GlobalWorkspace:
         from world_model import WorldModel
         self.world_model = WorldModel()
 
-    def broadcast(self, processor_name: str, content: str, attention_score: float = 0) -> dict:
+    def broadcast(self, processor_name: str, content: str, attention_score: float = 0,
+                  content_vec: "np.ndarray" = None) -> dict:
         """
         Place content into the global workspace — the moment of conscious access.
+
+        Args:
+            content_vec: Optional neural activation vector for Φ computation.
+                         When provided (neural path), stored in history entry.
         """
         with self._lock:
             self._cycle_count += 1
@@ -58,6 +63,8 @@ class GlobalWorkspace:
                 "attention_score": round(attention_score, 4),
                 "time": time.time(),
             }
+            if content_vec is not None:
+                entry["content_vec"] = content_vec
             self.current_content = content
             self.history.append(entry)
 
@@ -90,12 +97,37 @@ class GlobalWorkspace:
     def last_broadcast_cycle(self) -> int:
         return self._cycle_count
 
-    def read_vec(self):
-        """Return current workspace state as a vector for neural processor consumption."""
+    def read_vec(self, n_neurons: int = None):
+        """
+        Return current workspace state as a vector for neural processor consumption.
+
+        Priority:
+          1. Last history entry's content_vec (actual neural activation from broadcast)
+          2. Text-based fallback (ASCII encoding of current_content)
+
+        Args:
+            n_neurons: Target dimension (padded/truncated to this if provided).
+        """
         import numpy as np
+        # Check last broadcast history for stored neural activation vector
+        if self.history and "content_vec" in self.history[-1]:
+            vec = np.asarray(self.history[-1]["content_vec"], dtype=np.float32).flatten()
+            if n_neurons is not None and len(vec) != n_neurons:
+                if len(vec) < n_neurons:
+                    vec = np.pad(vec, (0, n_neurons - len(vec)))
+                else:
+                    vec = vec[:n_neurons]
+            return vec
+
+        # Fallback: text-based encoding (pre-first-broadcast or LLM path)
+        dim = n_neurons or 32
         if self.current_content:
-            return np.array([ord(c) / 128.0 for c in self.current_content[:32]] + [0] * 32)[:32]
-        return np.zeros(32)
+            vec = np.zeros(dim, dtype=np.float32)
+            chars = [ord(c) / 128.0 for c in self.current_content[:dim]]
+            for i, v in enumerate(chars):
+                vec[i] = v
+            return vec
+        return np.zeros(dim, dtype=np.float32)
 
     def reset(self):
         with self._lock:
@@ -392,6 +424,7 @@ class CollaborativeWorkspace(GlobalWorkspace):
         merged_content: str,
         consensus_score: float,
         proposals: dict[str, str],
+        content_vec: "np.ndarray" = None,
     ) -> dict:
         """
         Broadcast the merged output of a coalition into the global workspace.
@@ -399,6 +432,9 @@ class CollaborativeWorkspace(GlobalWorkspace):
         This replaces winner-take-all broadcast with coalition-consensus broadcast:
         multiple processors jointly contribute, their merged representation becomes
         globally available.
+
+        Args:
+            content_vec: Optional neural activation vector for Φ computation.
         """
         with self._lock:
             self._cycle_count += 1
@@ -412,6 +448,8 @@ class CollaborativeWorkspace(GlobalWorkspace):
                 "n_coalition": len(coalition_names),
                 "time": time.time(),
             }
+            if content_vec is not None:
+                entry["content_vec"] = content_vec
             self.current_content = merged_content
             self.history.append(entry)
             self.coalition_history.append(entry)

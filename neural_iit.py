@@ -281,8 +281,9 @@ def neural_phi_approx(
     # Component 1: Irreducible mutual information
     # Φ intuition: how much of workspace→processors information is lost
     # when we treat each processor independently?
-    all_processor_concat = np.concatenate([p.flatten() for p in processor_proposals.values()])
-    mi_joint = _activation_mi_joint(workspace_activation, all_processor_concat)
+    # mi_joint = I(workspace; mean_of_processors) — consensus signal
+    # mi_parts = average I(workspace; processor_i) — individual signals
+    mi_joint = _activation_mi_joint(workspace_activation, processor_proposals)
     mi_parts = sum(
         _activation_mi_pairwise(workspace_activation, p)
         for p in processor_proposals.values()
@@ -370,9 +371,24 @@ def _mi_histogram(x: np.ndarray, y: np.ndarray, bins: int = 20) -> float:
         return 0.0
 
 
-def _activation_mi_joint(a: np.ndarray, b_concat: np.ndarray) -> float:
-    """MI between workspace and concatenated processor activations (histogram-based)."""
-    return _mi_histogram(a, b_concat)
+def _activation_mi_joint(
+    workspace: np.ndarray,
+    processor_proposals: dict[str, np.ndarray],
+) -> float:
+    """
+    Approximate I(workspace; all_processors_jointly).
+
+    Uses MI between workspace and the mean of all processor activation vectors.
+    The mean ("consensus") can carry emergent structure not present in any single
+    processor, capturing synergistic information. This avoids the concatenation
+    approach which truncated most processors' data due to dimension mismatch.
+    """
+    vecs = [p.flatten() for p in processor_proposals.values()]
+    if not vecs:
+        return 0.0
+    min_len = min(len(workspace.flatten()), min(len(v) for v in vecs))
+    mean_proc = np.mean([v[:min_len] for v in vecs], axis=0)
+    return _mi_histogram(workspace.flatten()[:min_len], mean_proc)
 
 
 def _activation_mi_pairwise(a: np.ndarray, b: np.ndarray) -> float:
@@ -418,8 +434,7 @@ def phi_sensitivity(
                 "reason": "no_proposals"}
 
     # Pre-compute components (these don't depend on weights)
-    all_processor_concat = np.concatenate([p.flatten() for p in processor_proposals.values()])
-    mi_joint = _activation_mi_joint(workspace_activation, all_processor_concat)
+    mi_joint = _activation_mi_joint(workspace_activation, processor_proposals)
     mi_parts = sum(
         _activation_mi_pairwise(workspace_activation, p)
         for p in processor_proposals.values()

@@ -404,12 +404,15 @@ def run_neural_cycle(
     )
 
     processors = _get_neural_processors(n_neurons, n_input)
-    workspace_context_vec = workspace.read_vec() if hasattr(workspace, 'read_vec') else np.zeros(n_neurons)
+    workspace_context_vec = (
+        workspace.read_vec(n_neurons) if hasattr(workspace, 'read_vec')
+        else np.zeros(n_neurons)
+    )
 
     # ── Phase 1: Pre-broadcast Φ ───────────────────────────────────────
     if hasattr(workspace, 'read_vec'):
         phi_before = neural_phi(
-            workspace.read_vec(),
+            workspace.read_vec(n_neurons),
             {k: v.read_proposal() for k, v in processors.items()
              if hasattr(v, 'read_proposal')},
             workspace.history if hasattr(workspace, 'history') else [],
@@ -495,10 +498,12 @@ def run_neural_cycle(
                 _neural_vec_to_text(winner_vec, "coalition"),
                 attention_score,
                 text_proposals,
+                content_vec=winner_vec,
             )
             broadcasted = True
         elif coalition_names:
-            workspace.broadcast(winner_name, _neural_vec_to_text(winner_vec, winner_name), attention_score)
+            workspace.broadcast(winner_name, _neural_vec_to_text(winner_vec, winner_name),
+                              attention_score, content_vec=winner_vec)
             broadcasted = True
 
     else:
@@ -509,17 +514,15 @@ def run_neural_cycle(
         )
         winner_vec = proposals.get(winner_name, np.zeros(n_neurons))
         if winner_name != "none":
-            workspace.broadcast(winner_name, winner_content, attention_score)
+            workspace.broadcast(winner_name, winner_content, attention_score,
+                              content_vec=winner_vec)
             broadcasted = True
 
     # Standard broadcast for non-collaborative modes
     if mode in ("random", "single_agent", "single_processor") and winner_name != "none":
-        workspace.broadcast(winner_name, _neural_vec_to_text(winner_vec, winner_name), attention_score)
+        workspace.broadcast(winner_name, _neural_vec_to_text(winner_vec, winner_name),
+                          attention_score, content_vec=winner_vec)
         broadcasted = True
-
-    # Store activation vector in workspace history (for neural Φ)
-    if hasattr(workspace, 'history') and workspace.history:
-        workspace.history[-1]["content_vec"] = winner_vec
 
     # ── Phase 4: Post-broadcast neural Φ ───────────────────────────────
     phi_after = neural_phi(
@@ -675,7 +678,7 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
         phi_afters = [c["phi_after"] for c in cycles]
         phi_befores = [c["phi_before"] for c in cycles]
         phi_sensitivities = [
-            c.get("phi_sensitivity", {}).get("cv", 0)
+            c.get("phi_sensitivity", {}).get("coefficient_of_variation", 0)
             for c in cycles
             if isinstance(c.get("phi_sensitivity"), dict)
         ]

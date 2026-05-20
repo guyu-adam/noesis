@@ -21,7 +21,7 @@ All initializations are N-independent and scale to arbitrary neuron counts.
 
 import os
 import numpy as np
-from agents.neural_base import NeuralProcessor
+from agents.neural_base import NeuralProcessor, _array
 
 
 # ── Helper ──────────────────────────────────────────────────────────────
@@ -127,9 +127,9 @@ class NeuralEvaluator(NeuralProcessor):
         n_neurons = n_neurons or int(os.environ.get("NOESIS_N_NEURONS", "256"))
         n_input = n_input or int(os.environ.get("NOESIS_N_INPUT", "32"))
         super().__init__("evaluator", n_neurons, n_input, seed=seed)
-        # Affective bias
+        # Affective bias (must be on GPU for CuPy acceleration)
         bias_rng = np.random.RandomState(seed + 1)
-        self.b = bias_rng.uniform(-0.15, 0.15, n_neurons).astype(np.float32)
+        self.b = _array(bias_rng.uniform(-0.15, 0.15, n_neurons).astype(np.float32))
 
     def _init_recurrent_weights(self, rng: np.random.RandomState) -> np.ndarray:
         N = self.n_neurons
@@ -191,9 +191,9 @@ class NeuralIntegrator(NeuralProcessor):
                     W[i, j] = 0
                     W[j, i] = 0
                     # Add long-range edge to random distant neuron
-                    far = rng.randint(0, N - 1)
+                    far = rng.randint(0, N)
                     while abs(far - i) <= k or far == i:
-                        far = rng.randint(0, N - 1)
+                        far = rng.randint(0, N)
                     W[i, far] = rng.uniform(0.1, 0.4)
                     W[far, i] = rng.uniform(0.1, 0.4)
 
