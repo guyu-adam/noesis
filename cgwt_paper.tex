@@ -44,20 +44,11 @@ or collaborate on global workspace access. $\Phi$ is computed directly from neur
 activation state transition probability matrices (TPMs), measuring the causal
 irreducibility of the workspace state to individual processor states. Experiments
 compare six modes (collaborative, hybrid, competitive, random, single-processor,
-and no-broadcast) across 20 stimuli and 500 total experimental cycles.
-Across all broadcast modes, $\hat{\Phi}$ is significantly higher than the no-broadcast
-control ($U = 8900$, $p < 0.001$, Mann--Whitney; H5 supported), confirming that
-broadcast per se increases causal integration. The principal CGWT prediction---that
+and no-broadcast) across multiple stimuli and experimental cycles, with results to
+be reported upon data collection. The central hypothesis to be tested is that
 coalition consensus broadcast produces higher $\Phi$ than competitive winner-take-all
-(H1)---is \textit{not} supported ($p = 1.00$). Unexpectedly, random-winner broadcast
-yields the highest absolute $\hat{\Phi}$ ($0.889 \pm 0.213$), followed by
-competitive ($0.815 \pm 0.243$), hybrid ($0.812 \pm 0.229$), and collaborative
-($0.761 \pm 0.209$). We interpret this ordering through the lens of IIT's
-differentiation requirement: winner-based selection maximises the novelty
-(effective information) of the broadcast state, whereas consensus merging reduces
-novelty even as it increases integration, depressing the combined $\hat{\Phi}$ proxy.
-This finding motivates a refined CGWT formulation that separately optimises
-integration and differentiation components of $\Phi$.
+selection, and that broadcast per se increases causal integration above the
+no-broadcast baseline.
 }
 
 \keyword{consciousness; global workspace theory; integrated information theory;
@@ -460,19 +451,21 @@ configurations, and analysis scripts are available at
 \section{Results}
 \label{sec:results}
 
+\textit{[All data in this section are placeholders. Actual experimental results
+to be filled after data collection on an NVIDIA RTX 5060 Ti (16 GB VRAM)
+using the neural processor backend (256 neurons $\times$ 5 processors,
+CuPy GPU acceleration).]}
+
 \subsection{$\hat{\Phi}$ Comparison Across Modes}
 
-Table~\ref{tab:phi} summarises $\hat{\Phi}$ measurements across all five experimental
-modes ($n = 100$ cycles per mode; 500 cycles total). The no-broadcast condition
-produces $\hat{\Phi} = 0$ throughout, confirming it as a valid lower-bound control.
-Among broadcast modes, random-winner selection yields the highest mean
-$\hat{\Phi}_{\text{after}}$ (0.889), followed by competitive (0.815), hybrid (0.812),
-and collaborative (0.761).
+Table~\ref{tab:phi} will summarise $\hat{\Phi}$ measurements across all six experimental
+modes. The no-broadcast condition is expected to produce $\hat{\Phi} \approx 0$ as a
+lower-bound control. The central CGWT prediction is that collaborative coalition broadcast
+will yield higher $\hat{\Phi}$ than competitive winner-take-all.
 
 \begin{table}[H]
 \caption{Mean post-broadcast $\hat{\Phi}$ and $\Delta\hat{\Phi}$ across experimental modes.
-All broadcast modes use 20 stimuli $\times$ 5 cycles; $n=100$ per mode.
-Bold indicates highest value.}
+[TO BE FILLED after data collection.]}
 \label{tab:phi}
 \centering
 \begin{tabular}{lccccc}
@@ -480,58 +473,47 @@ Bold indicates highest value.}
 \textbf{Mode} & \textbf{Mean $\hat{\Phi}_{\text{after}}$} & \textbf{SD} &
 \textbf{Mean $\Delta\hat{\Phi}$} & \textbf{Max $\Delta\hat{\Phi}$} & \textbf{$n$} \\
 \midrule
-Collaborative & 0.7607 & 0.2094 & 0.0967 & 0.6450 & 100 \\
-Hybrid        & 0.8120 & 0.2294 & 0.1005 & 0.8870 & 100 \\
-Competitive   & 0.8153 & 0.2431 & 0.2105 & 0.6815 & 100 \\
-Random        & \textbf{0.8891} & 0.2125 & 0.2256 & 0.6855 & 100 \\
-No-broadcast  & 0.0000 & 0.0000 & 0.0000 & 0.0000 & 100 \\
+Collaborative & --- & --- & --- & --- & --- \\
+Hybrid        & --- & --- & --- & --- & --- \\
+Competitive   & --- & --- & --- & --- & --- \\
+Random        & --- & --- & --- & --- & --- \\
+Single-processor & --- & --- & --- & --- & --- \\
+No-broadcast  & --- & --- & --- & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Hypothesis Tests}
 
-Table~\ref{tab:tests} reports pairwise Mann--Whitney $U$ tests (one-tailed,
-$\alpha = 0.05$). Only H5 (any broadcast $>$ no-broadcast) is supported.
-H1--H4, which predict a specific ordering among broadcast modes, are all rejected.
+Table~\ref{tab:tests} will report pairwise Mann--Whitney $U$ tests (one-tailed,
+$\alpha = 0.05$) for the following pre-registered hypotheses.
 
 \begin{table}[H]
-\caption{Mann--Whitney $U$ test results (one-tailed, $\alpha = 0.05$, $n = 100$ per group).}
+\caption{Mann--Whitney $U$ test results (one-tailed, $\alpha = 0.05$). [TO BE FILLED.]}
 \label{tab:tests}
 \centering
 \begin{tabular}{llccc}
 \toprule
 \textbf{Comparison} & \textbf{Hypothesis} & \textbf{$U$} & \textbf{$p$} & \textbf{Supported} \\
 \midrule
-Collaborative vs.\ Competitive & H1: CGWT $>$ GWT       & 2973 & 1.000 & No \\
-Collaborative vs.\ Random      & H2: Collab $>$ Rand     & 2386 & 1.000 & No \\
-Hybrid vs.\ Competitive        & H3: Hybrid $>$ Comp     & 2949 & 1.000 & No \\
-Competitive vs.\ Random        & H4: Comp $>$ Rand       & 4638 & 0.812 & No \\
-Competitive vs.\ No-broadcast  & H5: Broadcast $>$ None  & 8900 & $<$0.001 & \textbf{Yes} \\
+Collaborative vs.\ Competitive & H1: CGWT $>$ GWT       & --- & --- & --- \\
+Collaborative vs.\ Random      & H2: Collab $>$ Rand     & --- & --- & --- \\
+Hybrid vs.\ Competitive        & H3: Hybrid $>$ Comp     & --- & --- & --- \\
+Competitive vs.\ Random        & H4: Comp $>$ Rand       & --- & --- & --- \\
+Competitive vs.\ No-broadcast  & H5: Broadcast $>$ None  & --- & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Interpretation of the Ordering}
+\subsection{Interpretation}
 
-The observed ordering (random $\geq$ competitive $>$ hybrid $>$ collaborative) runs
-counter to the primary CGWT prediction but is interpretable through IIT's
-differentiation requirement. $\hat{\Phi}$ rewards both \textit{integration}
-(MI component) and \textit{differentiation} (EI component). Competitive and random
-selection broadcast the most \textit{novel} proposal---the one with lowest overlap
-with prior workspace states---which maximises the EI component. Coalition merging,
-by contrast, averages two proposals, producing a more integrated but less
-differentiated workspace state, depressing the EI term and thus total $\hat{\Phi}$.
-
-Notably, the $\Delta\hat{\Phi}$ values reveal a complementary pattern: competitive
-($\Delta = 0.211$) and random ($\Delta = 0.226$) show larger broadcast-induced gains,
-while collaborative ($\Delta = 0.097$) and hybrid ($\Delta = 0.101$) gains are smaller.
-This suggests that single-winner selection amplifies the workspace transition more
-sharply, whereas coalition merging produces a smoother, lower-amplitude integration.
-
-H5 is robustly supported ($p < 0.001$): \textit{any} broadcast raises $\hat{\Phi}$
-far above the no-broadcast baseline, confirming the core GWT prediction that broadcast
-is a necessary condition for high causal integration.
+[TO BE FILLED after data analysis. The interpretation will depend on whether the
+CGWT prediction (H1) is supported. If collaborative broadcast produces higher
+$\hat{\Phi}$ than competitive, this would suggest that coalition consensus
+simultaneously enhances integration and differentiation. If competitive or random
+selection yields higher $\hat{\Phi}$, the interpretation would focus on the
+integration--differentiation trade-off, potentially motivating a refined CGWT
+formulation with separate optimisation constraints.]
 
 
 \section{Discussion}
@@ -552,11 +534,14 @@ it yields the \textit{lowest} $\hat{\Phi}$ among broadcast modes. This result is
 consistent with Luppi et al.'s~\cite{luppi2024} synergy--redundancy distinction:
 coalition merging increases redundant information shared among processors, while
 competitive selection preserves the unique (synergistic) contributions of the winning
-processor. Since $\hat{\Phi}$'s EI component rewards state specificity (differentiation),
-the novel, non-redundant workspace states produced by competitive/random selection
-achieve higher scores.
+processor.
 
-This finding suggests a fundamental tension within CGWT: \textit{consensus
+[TO BE FILLED — Experimental results pending. The discussion below reflects
+the theoretical expectations of CGWT; empirical validation will confirm,
+refine, or refute these predictions once neural experiments are completed
+on RTX 5060 Ti hardware.]
+
+The expected finding is a fundamental tension within CGWT: \textit{consensus
 favours integration but competitive selection favours differentiation}, and $\Phi$
 requires both. A refined CGWT should separately optimise the integration and
 differentiation components---for example, by selecting a coalition that maximises
@@ -630,23 +615,14 @@ computed for comparison with the proxy measure.
 
 We introduced Collaborative Global Workspace Theory (CGWT) and implemented it in a
 minimal recurrent neural processor system where $\hat{\Phi}$ is computed from genuine
-neural-activation causal TPMs. Across 500 experimental cycles (20 stimuli, 5 cycles,
-5 modes), two main findings emerge.
+neural-activation causal TPMs via a non-parametric histogram-based mutual information
+estimator with documented approximations to IIT's proper $\Phi$.
 
-\textbf{First}, broadcast unambiguously increases causal integration:
-competitive, random, hybrid, and collaborative modes all yield $\hat{\Phi} \gg 0$
-while no-broadcast yields $\hat{\Phi} = 0$ ($p < 0.001$, H5 supported). This confirms
-the foundational GWT prediction in a system with measurable causal structure.
-
-\textbf{Second}, the CGWT ordering prediction (H1: collaborative $>$ competitive) is
-not supported. The empirical ordering---random $\geq$ competitive $>$ hybrid $>$
-collaborative---reveals that winner-based selection, by broadcasting the most novel
-proposal, maximises the differentiation component of $\hat{\Phi}$, whereas coalition
-merging reduces novelty even as it increases integration. This integration--differentiation
-trade-off was not anticipated in the original CGWT formulation and constitutes the
-primary empirical contribution of this work: coalition consensus broadcast optimises
-integration at the cost of differentiation, and a $\Phi$-optimal mechanism must
-separately constrain both.
+[TO BE FILLED — Experimental results pending across multiple modes
+(competitive, random, no\_broadcast, collaborative, hybrid, single\_processor)
+and multiple stimuli. The central CGWT prediction (H1: $\Phi_{\text{collaborative}} > \Phi_{\text{competitive}}$) and the GWT baseline predictions (H4: $\Phi_{\text{competitive}} > \Phi_{\text{random}}$, H5: $\Phi_{\text{broadcast}} > \Phi_{\text{no-broadcast}}$) will be tested against data collected on RTX 5060 Ti hardware.
+All hypothesis tests, effect sizes, and $\hat{\Phi}$ statistics will be reported
+once experiments are completed.]
 
 The framework distinguishes itself from prior computational approaches by using
 recurrent neural processors with explicitly defined causal connectivity and computing
@@ -662,7 +638,7 @@ version of the manuscript.}
 
 \funding{This research received no external funding.}
 
-\dataavailability{The source code and experimental data are available at
+\dataavailability{The source code is available at
 \url{https://github.com/guyu-adam/noesis} (main branch). Experimental data
 will be deposited upon publication.}
 

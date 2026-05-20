@@ -52,9 +52,13 @@ def _default_neurons() -> int:
     vram = os.environ.get("NOESIS_N_NEURONS")
     if vram:
         return int(vram)
-    if _VRAM_GB >= 12:
+    if _VRAM_GB >= 14:     # RTX 5060 Ti 16GB, RTX 4090 24GB, etc.
+        return 512
+    if _VRAM_GB >= 10:     # RTX 3080 12GB, RTX 4070 12GB, etc.
+        return 384
+    if _VRAM_GB >= 6:      # GTX 1660 Ti 6GB, etc.
         return 256
-    if _VRAM_GB >= 6:
+    if _VRAM_GB >= 4:
         return 128
     return 64
 
@@ -70,7 +74,30 @@ def _default_unroll() -> int:
 
 def _default_batch() -> int:
     """Default batch size — how many cycles to parallelize."""
-    return int(os.environ.get("NOESIS_BATCH_SIZE", "4"))
+    vram = os.environ.get("NOESIS_BATCH_SIZE")
+    if vram:
+        return int(vram)
+    if _VRAM_GB >= 14:
+        return 8
+    if _VRAM_GB >= 10:
+        return 6
+    if _VRAM_GB >= 6:
+        return 4
+    return 2
+
+
+def _default_clusters() -> int:
+    """Default number of state clusters for TPM discretization."""
+    vram = os.environ.get("NOESIS_N_CLUSTERS")
+    if vram:
+        return int(vram)
+    if _VRAM_GB >= 14:
+        return 50
+    if _VRAM_GB >= 10:
+        return 40
+    if _VRAM_GB >= 6:
+        return 30
+    return 20
 
 
 # ── Experiment configuration ────────────────────────────────────────
@@ -87,7 +114,10 @@ class Config:
         self.batch_size: int = _default_batch()
         self.noise_std: float = float(os.environ.get("NOESIS_NOISE", "0.01"))
         self.max_history: int = int(os.environ.get("NOESIS_MAX_HISTORY", "500"))
-        self.n_state_clusters: int = int(os.environ.get("NOESIS_N_CLUSTERS", "30"))
+        self.n_state_clusters: int = int(os.environ.get(
+            "NOESIS_N_CLUSTERS",
+            str(_default_clusters())
+        ))
         self.dtype: str = "float32"
         self.gpu: bool = _GPU_AVAILABLE
 

@@ -389,7 +389,7 @@ def run_neural_cycle(
         stimulus_vec: Shape (n_input,). Encoded stimulus vector.
         workspace: GlobalWorkspace or CollaborativeWorkspace.
         memory: SemanticMemory instance.
-        mode: "competitive" | "random" | "no_broadcast" | "single_agent"
+        mode: "competitive" | "random" | "no_broadcast" | "single_agent" | "single_processor"
               | "collaborative" | "hybrid"
         n_neurons: Neurons per processor (default 32).
         n_input: Stimulus vector dimension (default 16).
@@ -421,7 +421,7 @@ def run_neural_cycle(
     proposals = {}
     processor_names = ["perceptor", "reasoner", "evaluator", "integrator", "predictor"]
 
-    if mode == "single_agent":
+    if mode in ("single_agent", "single_processor"):
         try:
             proposals["reasoner"] = processors["reasoner"].process(
                 stimulus_vec, workspace_context_vec
@@ -513,7 +513,7 @@ def run_neural_cycle(
             broadcasted = True
 
     # Standard broadcast for non-collaborative modes
-    if mode in ("random", "single_agent") and winner_name != "none":
+    if mode in ("random", "single_agent", "single_processor") and winner_name != "none":
         workspace.broadcast(winner_name, _neural_vec_to_text(winner_vec, winner_name), attention_score)
         broadcasted = True
 
@@ -581,6 +581,152 @@ def run_neural_cycle(
 
     _save_cycle_result(result, mode, workspace._cycle_count)
     return result
+
+
+def run_neural_comparison(
+    stimuli_vecs: list["np.ndarray"],
+    modes: list[str] = None,
+    cycles_per_stimulus: int = 5,
+    n_neurons: int = None,
+    n_input: int = None,
+) -> dict[str, list[dict]]:
+    """
+    Batch neural experiment: run same stimuli across all modes for comparison.
+
+    This is the neural counterpart to run_comparison_experiment() — instead of
+    LLM agents, it uses small RNN processors with real causal structure and
+    computes Φ from neural activation TPMs via neural_iit.py.
+
+    Tests the central CGWT hypothesis:
+        Φ_collaborative > Φ_competitive > Φ_random > Φ_no_broadcast
+
+    Args:
+        stimuli_vecs: List of encoded stimulus vectors, each shape (n_input,).
+        modes: Modes to compare. Default: all 6.
+        cycles_per_stimulus: Repetitions per stimulus per mode.
+        n_neurons: Neurons per processor (reads NOESIS_N_NEURONS or config default).
+        n_input: Stimulus dimension (reads NOESIS_N_INPUT or config default).
+
+    Returns:
+        {mode_name: [result_dicts], ...}
+    """
+    import numpy as np
+    from config import get_config
+
+    if modes is None:
+        modes = ["competitive", "random", "no_broadcast",
+                 "collaborative", "hybrid", "single_processor"]
+
+    cfg = get_config()
+    n_neurons = n_neurons or cfg.n_neurons
+    n_input = n_input or cfg.n_input
+
+    from memory import SemanticMemory
+    from workspace import GlobalWorkspace, CollaborativeWorkspace
+
+    collaborative_modes = {"collaborative", "hybrid"}
+    all_results = {}
+
+    total_cycles = len(stimuli_vecs) * cycles_per_stimulus * len(modes)
+    print(f"[NEURAL] {len(stimuli_vecs)} stimuli × {cycles_per_stimulus} cycles × {len(modes)} modes = {total_cycles} total cycles")
+    print(f"[NEURAL] {n_neurons} neurons/processor, {n_input}-dim input")
+    if cfg.gpu:
+        info = cfg.summary()
+        gpu_info = info["gpu"]
+        print(f"[NEURAL] GPU: {gpu_info.get('name', '?')} ({gpu_info.get('vram_mb', 0)}MB VRAM)")
+    else:
+        print("[NEURAL] CPU-only mode")
+
+    cycle_idx = 0
+    for mode in modes:
+        mem = SemanticMemory()
+        ws = CollaborativeWorkspace(mem) if mode in collaborative_modes else GlobalWorkspace(mem)
+        mode_results = []
+
+        for stim_idx, stim_vec in enumerate(stimuli_vecs):
+            for _ in range(cycles_per_stimulus):
+                result = run_neural_cycle(
+                    stim_vec, ws, mem, mode=mode,
+                    n_neurons=n_neurons, n_input=n_input,
+                )
+                mode_results.append(result)
+                cycle_idx += 1
+                if cycle_idx % 10 == 0:
+                    print(f"[NEURAL] {cycle_idx}/{total_cycles} cycles complete", flush=True)
+
+        all_results[mode] = mode_results
+        mem.clear()
+
+    return all_results
+
+
+def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
+    """
+    Statistical comparison of neural Φ across experimental modes.
+
+    Uses Mann-Whitney U (non-parametric, one-tailed) on phi_delta values.
+    Also reports phi_sensitivity CV distributions and complexity metrics.
+    """
+    import numpy as np
+
+    analysis = {}
+    for mode, cycles in results.items():
+        phi_deltas = [c["phi_delta"] for c in cycles]
+        phi_afters = [c["phi_after"] for c in cycles]
+        phi_befores = [c["phi_before"] for c in cycles]
+        phi_sensitivities = [
+            c.get("phi_sensitivity", {}).get("cv", 0)
+            for c in cycles
+            if isinstance(c.get("phi_sensitivity"), dict)
+        ]
+        complexities = [c.get("complexity", 0) for c in cycles]
+
+        analysis[mode] = {
+            "mean_phi_delta": round(float(np.mean(phi_deltas)), 6),
+            "std_phi_delta": round(float(np.std(phi_deltas)), 6),
+            "mean_phi_after": round(float(np.mean(phi_afters)), 6),
+            "std_phi_after": round(float(np.std(phi_afters)), 6),
+            "mean_phi_before": round(float(np.mean(phi_befores)), 6),
+            "max_phi_delta": round(float(np.max(phi_deltas)), 6),
+            "mean_complexity": round(float(np.mean(complexities)), 6),
+            "mean_sensitivity_cv": round(float(np.mean(phi_sensitivities)), 6) if phi_sensitivities else 0,
+            "n_cycles": len(cycles),
+            "broadcast_rate": round(
+                sum(1 for c in cycles if c.get("broadcasted")) / max(len(cycles), 1), 4
+            ),
+        }
+
+    # Hypothesis tests
+    try:
+        from scipy.stats import mannwhitneyu
+        tests = {}
+        pairs = [
+            ("collaborative", "competitive", "H1: Collab Φ > Competitive Φ"),
+            ("collaborative", "random", "H2: Collab Φ > Random Φ"),
+            ("hybrid", "competitive", "H3: Hybrid Φ > Competitive Φ"),
+            ("competitive", "random", "H4: Competitive Φ > Random Φ"),
+            ("competitive", "no_broadcast", "H5: Broadcast Φ > No-broadcast Φ"),
+        ]
+        for mode_a, mode_b, label in pairs:
+            if mode_a in results and mode_b in results:
+                a = [c["phi_delta"] for c in results[mode_a]]
+                b = [c["phi_delta"] for c in results[mode_b]]
+                if len(a) >= 4 and len(b) >= 4:
+                    stat, pval = mannwhitneyu(a, b, alternative="greater")
+                    tests[f"{mode_a}_vs_{mode_b}"] = {
+                        "label": label,
+                        "U_statistic": float(stat),
+                        "p_value": round(float(pval), 6),
+                        "significant": pval < 0.05,
+                        "supported": pval < 0.05,
+                        "n_a": len(a),
+                        "n_b": len(b),
+                    }
+        analysis["hypothesis_tests"] = tests
+    except Exception as e:
+        analysis["hypothesis_tests"] = {"error": str(e)}
+
+    return analysis
 
 
 def _neural_vec_to_text(vec: "np.ndarray", label: str = "") -> str:
