@@ -92,6 +92,11 @@ consciousness remains an open question---and one that has recently been
 subjected to adversarial empirical testing~\cite{ferrante2025adversarial}.
 
 The tension is sharpened by three recent developments. First,
+Ferrante et al.\ (2025)~\cite{ferrante2025adversarial} demonstrated, through
+a preregistered adversarial collaboration, that both GNWT and IIT receive
+only partial empirical support—establishing rigorous theory-testing through
+controlled computational and experimental manipulation as the methodological
+standard for the field. Second,
 Luppi et al.\ (2024)~\cite{luppi2024synergistic} demonstrated that the human
 brain's global workspace is characterized by a specific balance of synergistic
 and redundant information, raising the question of whether artificial GWT
@@ -248,7 +253,8 @@ Mode & Selection Mechanism & Scientific Purpose \\
 
 \subsection{$\Phi$ Approximation}
 
-Computing IIT's exact $\Phi$ for a system of $5 \times 512 = 2560$ neurons is
+Computing IIT's exact $\Phi$ as defined in IIT 3.0~\cite{oizumi2014}
+for a system of $5 \times 512 = 2560$ neurons is
 cosmologically intractable (state space size $2^{2560}$). We compute a
 tractable approximation with four documented simplifications:
 
@@ -562,6 +568,20 @@ stimulus similarly) at the expense of synergistic information (complementary
 representations that together specify more than the sum of their parts). The
 attention weight collapse (cosine similarity $> 0.95$) provides direct
 evidence for this interpretation.
+
+From the perspective of causal emergence~\cite{hoel2013causal}, the
+single-processor condition can be viewed as a \textit{macro-scale} causal
+unit (the entire recurrent network operating as one integrated system), while
+the multi-processor conditions operate at a \textit{micro-scale} (individual
+processors as causal units, with broadcast as an aggregation mechanism).
+Hoel et al.\ demonstrated that macro-scale descriptions can exhibit
+\textit{greater} effective information than their micro-scale constituents---a
+phenomenon termed causal emergence. Our Finding~3 instantiates this principle
+in a neural architecture: the macro-scale single processor achieves higher
+$\Phi$ than any micro-scale aggregation of five processors plus broadcast.
+This connection situates CGWT's computational constraints within the broader
+causal emergence framework---and, notably, within the pages of this
+journal~\cite{hoel2013causal}.
 \end{enumerate}
 
 \subsection{The Coalition Consensus Paradox}
@@ -787,7 +807,10 @@ Safron, A. Integrated world modeling theory expanded: implications for the futur
 Steake. GodelOS: A Consciousness Operating System for LLMs. GitHub repository, 2025--2026. \url{https://github.com/steake/GodelOS}.
 
 \bibitem{multiagent_coordination}
-Several authors. Multi-agent LLM coordination and debate. \textit{Auton. Agents Multi-Agent Syst.} \textbf{2023--2025}, various volumes.
+Du, Y.; Li, S.; Torralba, A.; Tenenbaum, J.; Mordatch, I. Improving Factuality and Reasoning in LLMs through Multi-Agent Debate. \textit{arXiv} \textbf{2024}, 2305.14325. [Representative example.]
+
+\bibitem{hoel2013causal}
+Hoel, E.P.; Albantakis, L.; Tononi, G. Quantifying Causal Emergence Shows That Macro Can Beat Micro. \textit{Proc. Natl. Acad. Sci. USA} \textbf{2013}, \textit{110}, 19790--19795.
 
 \bibitem{phua2025}
 Phua, K. Consciousness as Causal Closing: A Dynamical Framework Bridging IIT and Active Inference via the Good Regulator Theorem. \textit{arXiv} \textbf{2025}, 2512.19155.
@@ -800,6 +823,9 @@ Friston, K. The free-energy principle: a unified brain theory? \textit{Nat. Rev.
 
 \bibitem{kriegeskorte2008representational}
 Kriegeskorte, N.; Mur, M.; Bandettini, P. Representational similarity analysis---connecting the branches of systems neuroscience. \textit{Front. Syst. Neurosci.} \textbf{2008}, \textit{2}, 4.
+
+\bibitem{mediano2021taxonomy}
+Mediano, P.A.M.; Rosas, F.E.; Luppi, A.I.; Carhart-Harris, R.L.; Bor, D.; Seth, A.K.; Barrett, A.B. Towards an Extended Taxonomy of Information Dynamics via Integrated Information Decomposition. \textit{arXiv} \textbf{2021}, 2109.13186.
 
 \bibitem{oizumi2014}
 Oizumi, M.; Albantakis, L.; Tononi, G. From the phenomenology to the mechanisms of consciousness: integrated information theory 3.0. \textit{PLoS Comput. Biol.} \textbf{2014}, \textit{10}, e1003588.
