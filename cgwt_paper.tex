@@ -45,15 +45,15 @@ transition probability matrices. Across nine experimental modes (900 total
 observation cycles, GPU-accelerated), we report four computational constraints:
 (1) broadcast is strictly necessary for high $\Phi$---all broadcast modes
 produce $\Phi = 0.63$--$0.86$ versus $0.05$ for no-broadcast (Cohen's
-$d = 7.23$, $p \approx 0$); (2) processor differentiation is a critical
+$d = 7.43$, $p \approx 0$); (2) processor differentiation is a critical
 prerequisite---five structurally identical processors produce significantly
-lower $\Phi$ than five specialized processors ($d = 1.12$, $p \approx 0$);
+lower $\Phi$ than five specialized processors ($d = 1.24$, $p \approx 0$);
 (3) a single integrated processor achieves higher $\Phi$ than any
-multi-processor architecture (0.86 vs.\ 0.63--0.83), revealing an
+multi-processor architecture (0.86 vs.\ 0.60--0.83), revealing an
 integration--differentiation tradeoff consistent with the synergy--redundancy
 framework of Luppi et al.\ (2024); and (4) coalition consensus broadcast does
 not outperform competitive selection in the current implementation, which we
-attribute to near-uniform attention weights (cosine similarity $0.955 \pm
+attribute to near-uniform attention weights (cosine similarity $0.960 \pm
 0.003$) causing the coalition merge to collapse toward a simple mean. These
 findings provide empirically grounded constraints for any computational
 framework seeking to unify GWT and IIT, and identify concrete directions for
@@ -297,9 +297,17 @@ Mode & Selection Mechanism & Scientific Purpose \\
 6. Single-processor & One processor, no competition        & Multi-processor necessity test \\
 7. Single self-broadcast & One processor broadcasts to itself & Isolate broadcast vs.\ multi-processor \\
 8. Homogeneous competitive & Five identical Integrators, winner-take-all & Processor differentiation necessity \\
-9. Adaptive & Coalition with differentiation gate (std $<$ 0.02 $\to$ competitive fallback) & Test adaptive gating \\
+9. Adaptive & Coalition with differentiation gate (std $<$ 0.02 $\to$ competitive fallback) & Test adaptive gating$^a$ \\
 \bottomrule
 \end{tabular}
+
+\smallskip
+\small
+$^a$ The threshold $\tau = 0.02$ was chosen to be approximately one order
+of magnitude above the observed attention weight noise floor
+($\sigma(\alpha) \approx 0.001$--$0.003$ in collaborative/hybrid modes),
+such that coalition is deployed only when processor disagreement exceeds
+what can be attributed to numerical variation. \\
 \end{table}
 
 \subsection{$\Phi$ Approximation}
@@ -486,10 +494,10 @@ Random                  & 0.605 $\pm$ 0.163 & 0.600 & 0.005 & 2.159 & 0.053 & 0.
 
 Table~\ref{tab:results} presents per-mode $\Phi$ statistics. The most striking
 result is the categorical divide between broadcast and no-broadcast modes:
-all broadcast modes produce $\Phi_\text{after}$ in the range 0.63--0.86,
-while no-broadcast yields $\Phi_\text{after} = 0.052$. A Mann--Whitney $U$
+all broadcast modes produce $\Phi_\text{after}$ in the range 0.60--0.86,
+while no-broadcast yields $\Phi_\text{after} = 0.051$. A Mann--Whitney $U$
 test comparing competitive versus no-broadcast on $\Phi_\text{after}$ (H5b)
-yields $U = 9987$, $p \approx 0$, Cohen's $d = 7.23$---an effect of
+yields $U = 9986$, $p \approx 0$, Cohen's $d = 7.43$---an effect of
 extraordinary magnitude. The required sample size for 80\% power is
 effectively zero because the effect is so large.
 
@@ -515,8 +523,8 @@ limitation of the calibration configuration.
 Competitive selection among five structurally differentiated processors
 produces $\Phi_\text{after} = 0.825 \pm 0.151$, while the same mechanism
 applied to five structurally identical Integrator RNNs (homogeneous
-competitive mode) yields only $0.653 \pm 0.156$ (H7b: $U = 8303$,
-$p \approx 0$, Cohen's $d = 1.12$). This $d = 1.12$ effect provides causal
+competitive mode) yields only $0.632 \pm 0.169$ (H7b: $U = 8303$,
+$p \approx 0$, Cohen's $d = 1.24$). This $d = 1.24$ effect provides causal
 computational evidence that GWT's ``specialized processors'' architecture
 is not merely a convenience---it is a prerequisite for the emergence of
 high-$\Phi$ states in multi-processor systems.
@@ -617,14 +625,14 @@ seeking to unify GWT and IIT:
 
 \begin{enumerate}
 \item \textbf{Broadcast is necessary but not sufficient.} The 12--17-fold
-increase in $\Phi$ from no-broadcast to broadcast conditions ($d = 7.23$)
+increase in $\Phi$ from no-broadcast to broadcast conditions ($d = 7.43$)
 confirms GWT's core prediction that global workspace access is a prerequisite
 for high-$\Phi$ states. However, broadcast alone explains only a small
 fraction of the variance in $\Phi$ across modes ($\eta^2 = 0.17$ in ANCOVA),
 consistent with the observation that the recurrent structure of individual
 processors ($W_\text{rec}$) dominates the causal architecture.
 
-\item \textbf{Specialization is causal, not decorative.} The $d = 1.12$
+\item \textbf{Specialization is causal, not decorative.} The $d = 1.24$
 gap between differentiated and homogeneous competitive modes provides causal
 evidence that processor differentiation is a structural requirement for
 high-$\Phi$ multi-processor states. This has direct implications for
@@ -783,7 +791,7 @@ constraints identified here have potential downstream implications for
 adjacent fields:
 
 \textbf{Multi-agent AI architecture.} Finding~2 (differentiation prerequisite,
-$d = 1.12$) implies that agent role differentiation in LLM multi-agent
+$d = 1.24$) implies that agent role differentiation in LLM multi-agent
 systems cannot rely on prompt engineering alone—the underlying models must
 be heterogeneous in their representational geometry. Finding~3 (single
 $>$ multi) suggests a diminishing-returns principle for agent count: when
@@ -810,7 +818,7 @@ direction toward quantitative, theory-grounded screening tools for
 consciousness level assessment. If future work (a) validates
 $\Phi_\text{approx}$ against exact $\Phi$ on tractable systems and (b)
 adapts the TPM construction pipeline to EEG or iEEG time series, the
-broadcast-necessity constraint ($d = 7.23$) provides a testable
+broadcast-necessity constraint ($d = 7.43$) provides a testable
 prediction for clinical data: conditions associated with impaired
 consciousness should exhibit reduced information integration relative to
 the awake state, and the deficit should be most pronounced in the
@@ -865,7 +873,7 @@ bottleneck (Finding~3) scales with processor count.
 three constraints provide testable predictions for neuromorphic hardware
 prototypes (Loihi~2, NorthPole) and, pending $\Phi_\text{approx}$
 validation against exact $\Phi$, for clinical EEG/iEEG data.
-Broadcast necessity ($d = 7.23$) predicts that conditions associated
+Broadcast necessity ($d = 7.43$) predicts that conditions associated
 with impaired consciousness should exhibit a disproportionate deficit
 in the global workspace component of $\Phi$ relative to local
 processor components.
@@ -878,10 +886,10 @@ processor components.
 
 We have presented a systematic computational investigation of the relationship
 between broadcast mechanisms and causal integrated information ($\Phi$) in a
-recurrent neural processor system. By comparing eight experimental modes
+recurrent neural processor system. By comparing nine experimental modes
 across 900 observation cycles, we identified three robust computational
-constraints: broadcast is strictly necessary for high $\Phi$ ($d = 7.23$),
-processor differentiation is a causal prerequisite ($d = 1.12$), and
+constraints: broadcast is strictly necessary for high $\Phi$ ($d = 7.43$),
+processor differentiation is a causal prerequisite ($d = 1.24$), and
 multi-processor architecture introduces an information bottleneck relative to
 a single integrated processor.
 
