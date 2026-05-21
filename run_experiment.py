@@ -232,3 +232,11 @@ for mode, summary in output["results_summary"].items():
     aws = summary.get("attention_weight_std")
     if awm is not None:
         print(f"  {mode}: attention_weights mean={awm}, std={aws} (effective_n≈{1.0/max(aws**2*5, 1e-4):.1f} of 5)")
+print("\nClustered analysis (20 stimulus-level means per mode):")
+clustered = analysis.get("clustered_analysis", {})
+for k, v in clustered.get("hypothesis_tests", {}).items():
+    if isinstance(v, dict) and "p_value" in v:
+        print(f"  {k}: p={v['p_value']}, d={v.get('cohens_d','?')}")
+if "clustered_summary" in clustered:
+    for mode, s in clustered["clustered_summary"].items():
+        print(f"  {mode}: {s['mean_phi_after']} +- {s['se_phi_after']} (SE)")

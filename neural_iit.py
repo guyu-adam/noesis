@@ -35,10 +35,14 @@ information measure, not a claim to measure consciousness magnitude.
 """
 
 import numpy as np
+import os
 from collections import Counter
 from typing import Optional
 from scipy.spatial.distance import jensenshannon
 
+# Fixed window size for TPM construction — prevents EI accumulation artifact
+# where EI grows linearly with cycle count due to increasing history length.
+TPM_WINDOW = int(os.environ.get("NOESIS_TPM_WINDOW", "10"))
 
 # ── State discretization ────────────────────────────────────────────────────
 
@@ -329,7 +333,7 @@ def neural_phi_approx(
     if workspace_history and len(workspace_history) >= 2:
         hist_activations = [
             h.get("content_vec", np.zeros_like(workspace_activation))
-            for h in workspace_history[-50:]
+            for h in workspace_history[-TPM_WINDOW:]
         ]
         labels, _ = cluster_activation_states(hist_activations, n_state_clusters)
         tpm = neural_state_transition_matrix(labels, n_state_clusters)
@@ -479,7 +483,7 @@ def phi_sensitivity(
     if workspace_history and len(workspace_history) >= 2:
         hist_activations = [
             h.get("content_vec", np.zeros_like(workspace_activation))
-            for h in workspace_history[-50:]
+            for h in workspace_history[-TPM_WINDOW:]
         ]
         labels, _ = cluster_activation_states(hist_activations, n_state_clusters)
         tpm = neural_state_transition_matrix(labels, n_state_clusters)
@@ -625,12 +629,11 @@ def phi_decomposed(
         # Build a simple TPM from this processor's activation history
         # (single-processor causal structure)
         history_vecs = []
-        for h in workspace_history[-20:]:
+        for h in workspace_history[-TPM_WINDOW:]:
             hist_vec = h.get("content_vec", None)
             if hist_vec is not None:
                 history_vecs.append(np.asarray(hist_vec).flatten())
         if len(history_vecs) >= 2:
-            # Bias TPM toward current processor by including its current activation
             history_vecs.append(vec.flatten())
         else:
             history_vecs = [vec.flatten(), vec.flatten()]

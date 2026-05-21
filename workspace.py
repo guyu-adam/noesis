@@ -349,13 +349,22 @@ class ConsensusController:
         world_model,
         context: str = "",
         workspace_for_suppression=None,
+        neural_proposals: dict = None,
     ) -> tuple[list[str], str, float]:
         """
         Select a coalition of processors for collaborative broadcast.
 
+        When neural_proposals (dict of name → activation vector) is provided,
+        pairwise agreement is computed via cosine similarity on neural
+        activation vectors rather than Jaccard similarity on text tokens.
+        This fixes the coalition-collapse bug where short text summaries
+        from neural processors had insufficient token overlap to reach
+        the agreement threshold.
+
         Returns:
             (coalition_names, merged_content, consensus_score)
         """
+        import numpy as np
         if not proposals:
             return ([], "", 0.0)
 
@@ -387,8 +396,17 @@ class ConsensusController:
         # Select coalition: take top candidates with sufficient pairwise agreement
         coalition = [scored[0]]
         for candidate in scored[1:self.coalition_size + 1]:
-            if _pairwise_agreement(coalition[0][2], candidate[2]) >= self.agreement_threshold:
-                coalition.append(candidate)
+            if neural_proposals is not None:
+                # Neural mode: cosine similarity on activation vectors
+                vec1 = np.asarray(neural_proposals.get(coalition[0][1], np.zeros(1))).flatten()
+                vec2 = np.asarray(neural_proposals.get(candidate[1], np.zeros(1))).flatten()
+                sim = float(np.dot(vec1, vec2) / max(np.linalg.norm(vec1) * np.linalg.norm(vec2), 1e-10))
+                if sim >= self.agreement_threshold:
+                    coalition.append(candidate)
+            else:
+                # Text mode: Jaccard token similarity (original behavior)
+                if _pairwise_agreement(coalition[0][2], candidate[2]) >= self.agreement_threshold:
+                    coalition.append(candidate)
             if len(coalition) >= self.coalition_size:
                 break
 

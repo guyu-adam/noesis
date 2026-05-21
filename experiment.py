@@ -479,7 +479,12 @@ def run_neural_cycle(
         winner_vec = proposals.get(winner_name, np.zeros(n_neurons))
 
     elif mode == "no_broadcast":
-        pass
+        # Record processor states in workspace history so TPM-based EI
+        # can be computed on an equal footing with broadcast modes.
+        # Without this, no_broadcast phi_within is identically zero by
+        # construction, creating a circular finding for H5.
+        mean_proc = np.mean([v for v in proposals.values()], axis=0)
+        workspace.broadcast("none", "(no broadcast)", 0.0, content_vec=mean_proc)
 
     elif mode in ("collaborative", "hybrid", "adaptive"):
         ctrl = ConsensusController(memory, coalition_size=2, agreement_threshold=0.25)
@@ -538,12 +543,14 @@ def run_neural_cycle(
                 scored_all.sort(reverse=True)
                 top2[scored_all[0][1]] = scored_all[0][2]
             coalition_names, merged_text, attention_score = ctrl.select_coalition(
-                top2, world_model, "", workspace
+                top2, world_model, "", workspace,
+                neural_proposals=proposals,
             )
         else:
             # collaborative or adaptive (with sufficient differentiation)
             coalition_names, merged_text, attention_score = ctrl.select_coalition(
-                text_proposals, world_model, "", workspace
+                text_proposals, world_model, "", workspace,
+                neural_proposals=proposals,
             )
 
         winner_name = f"coalition:{'+'.join(coalition_names)}" if coalition_names else winner_name
@@ -897,6 +904,16 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
     except Exception as e:
         analysis["ancova"] = {"error": str(e)}
 
+    # Stimulus-level clustered analysis (remedies pseudoreplication from
+    # treating 5 serial cycles per stimulus as independent observations).
+    # Computes per-stimulus means, then runs paired tests on 20 independent
+    # observations per mode.
+    try:
+        clustered = _stimulus_clustered_analysis(results)
+        analysis["clustered_analysis"] = clustered
+    except Exception as e:
+        analysis["clustered_analysis"] = {"error": str(e)}
+
     # Φ calibration anchors — MUST use experiment parameters for comparability
     try:
         from neural_iit import phi_calibration_anchors
@@ -909,6 +926,80 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
         analysis["phi_calibration"] = {"error": str(e)}
 
     return analysis
+
+
+def _stimulus_clustered_analysis(results: dict[str, list[dict]]) -> dict:
+    """
+    Per-stimulus aggregated analysis.
+
+    Groups 5 serial cycles per stimulus into one mean observation,
+    yielding 20 independent observations per mode (N=20 stimuli × 9 modes = 180
+    independent observations). Tests key hypotheses at the stimulus level.
+    """
+    import numpy as np
+    from scipy.stats import mannwhitneyu, wilcoxon
+
+    N_STIMULI = 20
+    CYCLES_PER = 5
+
+    def _per_stimulus_means(mode_results):
+        vals = []
+        for i in range(N_STIMULI):
+            chunk = mode_results[i * CYCLES_PER:(i + 1) * CYCLES_PER]
+            vals.append(np.mean([c["phi_after"] for c in chunk]))
+        return vals
+
+    tests = {}
+    pairs = [
+        ("competitive", "no_broadcast", "H5_clustered: Broadcast > No-broadcast"),
+        ("competitive", "homogeneous_competitive", "H7_clustered: Differentiated > Homogeneous"),
+        ("collaborative", "competitive", "H1_clustered: Collab > Competitive"),
+    ]
+    for mode_a, mode_b, label in pairs:
+        if mode_a in results and mode_b in results:
+            a = _per_stimulus_means(results[mode_a])
+            b = _per_stimulus_means(results[mode_b])
+            stat, pval = mannwhitneyu(a, b, alternative="greater")
+            d = _cohens_d(a, b)
+            tests[f"{mode_a}_vs_{mode_b}_clustered"] = {
+                "label": label,
+                "U": float(stat),
+                "p_value": round(float(pval), 6),
+                "cohens_d": round(d, 4),
+                "n_stimuli": N_STIMULI,
+                "method": "Mann-Whitney U on per-stimulus means (20 obs/mode)",
+            }
+
+    # Single vs multi: paired comparison across stimuli
+    for prefix in ["single_processor", "single_self_broadcast"]:
+        if prefix in results:
+            a = _per_stimulus_means(results[prefix])
+            b = _per_stimulus_means(results.get("competitive", results.get(list(results.keys())[0])))
+            stat, pval = wilcoxon(a, b, alternative="greater")
+            tests[f"{prefix}_vs_competitive_clustered"] = {
+                "label": f"Clustered: {prefix} > competitive",
+                "W": float(stat),
+                "p_value": round(float(pval), 6),
+                "n_stimuli": N_STIMULI,
+                "method": "Wilcoxon signed-rank on per-stimulus means (paired by stimulus)",
+            }
+            break
+
+    # Compute clustered means ± SE
+    clustered_summary = {}
+    for mode, cycles in results.items():
+        per_stim = _per_stimulus_means(cycles)
+        clustered_summary[mode] = {
+            "mean_phi_after": round(float(np.mean(per_stim)), 6),
+            "se_phi_after": round(float(np.std(per_stim) / np.sqrt(N_STIMULI)), 6),
+            "n_stimuli": N_STIMULI,
+        }
+
+    return {
+        "method": "Per-stimulus aggregation (20 independent observations per mode)",
+        "hypothesis_tests": tests,
+        "clustered_summary": clustered_summary,
+    }
 
 
 def _cohens_d(group_a: list[float], group_b: list[float]) -> float:
