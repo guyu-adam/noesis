@@ -172,6 +172,14 @@ for mode, cycles in results.items():
         "mean_phi_within": round(float(np.mean(phi_withins)), 6),
         "mean_phi_between": round(float(np.mean(phi_betweens)), 6),
         "mean_merge_diff_retention": round(float(np.mean(merge_rets)), 6),
+        "attention_weight_mean": (round(float(np.mean(
+            [c.get("merge_metadata", {}).get("attention_weight_mean", 0)
+             for c in cycles if c.get("merge_metadata", {}).get("strategy") == "attention"]
+        )), 4) if any(c.get("merge_metadata", {}).get("strategy") == "attention" for c in cycles) else None),
+        "attention_weight_std": (round(float(np.mean(
+            [c.get("merge_metadata", {}).get("attention_weight_std", 0)
+             for c in cycles if c.get("merge_metadata", {}).get("strategy") == "attention"]
+        )), 4) if any(c.get("merge_metadata", {}).get("strategy") == "attention" for c in cycles) else None),
         "n_cycles":        len(cycles),
         "broadcast_rate":  round(sum(1 for c in cycles if c.get("broadcasted")) / max(len(cycles), 1), 4),
     }
@@ -218,3 +226,9 @@ sim = output["metadata"].get("processor_pairwise_similarity", {})
 if sim and "error" not in sim:
     mean_sim = float(np.mean(list(sim.values()))) if sim else 0
     print(f"Processor pairwise similarity: mean={mean_sim:.4f}, all={sim}")
+# Attention weight distribution (supplementary per reviewer request)
+for mode, summary in output["results_summary"].items():
+    awm = summary.get("attention_weight_mean")
+    aws = summary.get("attention_weight_std")
+    if awm is not None:
+        print(f"  {mode}: attention_weights mean={awm}, std={aws} (effective_n≈{1.0/max(aws**2*5, 1e-4):.1f} of 5)")

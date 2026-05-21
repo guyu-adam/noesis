@@ -902,7 +902,7 @@ def merge_attention_weighted(
     names: list[str],
     workspace_vec: np.ndarray,
     world_model=None,
-) -> np.ndarray:
+) -> tuple:
     """
     World-model guided attention-weighted merge.
 
@@ -911,11 +911,14 @@ def merge_attention_weighted(
     This preserves differentiation while favoring consensus-aligned contributions.
 
     If world_model is provided, attentions are modulated by consensus_score.
+
+    Returns (merged_vec, attention_metadata).
     """
     if not vectors:
-        return np.array([])
+        return np.array([]), {}
     if len(vectors) == 1:
-        return vectors[0].copy()
+        return vectors[0].copy(), {"attention_weights": [1.0], "attention_weight_mean": 1.0,
+                                    "attention_weight_std": 0.0, "attention_effective_n": 1.0}
 
     ws = workspace_vec.flatten()
     scores = []
@@ -938,7 +941,12 @@ def merge_attention_weighted(
     for w, v in zip(weights, vectors):
         merged += w * v
 
-    return merged.astype(np.float32)
+    return merged.astype(np.float32), {
+        "attention_weights": [round(float(w), 4) for w in weights],
+        "attention_weight_mean": round(float(np.mean(weights)), 4),
+        "attention_weight_std": round(float(np.std(weights)), 4),
+        "attention_effective_n": round(float(1.0 / np.sum(weights ** 2)), 4),  # effective ensemble size
+    }
 
 
 def merge_coalition(
@@ -966,10 +974,11 @@ def merge_coalition(
 
     target_dim = vectors[0].shape[0] if len(vectors[0].shape) == 1 else len(vectors[0].flatten())
 
+    attention_meta = {}
     if strategy == "concat":
         merged = merge_concat(vectors, target_dim)
     elif strategy == "attention" and workspace_vec is not None:
-        merged = merge_attention_weighted(vectors, names or [], workspace_vec, world_model)
+        merged, attention_meta = merge_attention_weighted(vectors, names or [], workspace_vec, world_model)
     else:
         merged = merge_mean(vectors)
 
@@ -982,6 +991,7 @@ def merge_coalition(
         "input_std_mean": float(np.mean([np.std(v) for v in vectors])),
         "merged_std": float(np.std(merged)),
         "differentiation_retention": fidelity["differentiation_retention"],
+        **attention_meta,  # includes attention_weight_mean, attention_weight_std, etc.
     }
 
 

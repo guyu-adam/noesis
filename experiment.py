@@ -748,6 +748,16 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
             c.get("merge_metadata", {}).get("differentiation_retention", 0)
             for c in cycles
         ]
+        attention_weight_means = [
+            c.get("merge_metadata", {}).get("attention_weight_mean", 0)
+            for c in cycles
+            if c.get("merge_metadata", {}).get("strategy") == "attention"
+        ]
+        attention_weight_stds = [
+            c.get("merge_metadata", {}).get("attention_weight_std", 0)
+            for c in cycles
+            if c.get("merge_metadata", {}).get("strategy") == "attention"
+        ]
 
         analysis[mode] = {
             "mean_phi_delta": round(float(np.mean(phi_deltas)), 6),
@@ -766,6 +776,9 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
             ),
             # Merge fidelity
             "mean_merge_diff_retention": round(float(np.mean(merge_diff_rets)), 6),
+            # Attention weight distribution (for coalition modes)
+            "attention_weight_mean": round(float(np.mean(attention_weight_means)), 4) if attention_weight_means else None,
+            "attention_weight_std": round(float(np.mean(attention_weight_stds)), 4) if attention_weight_stds else None,
             "n_cycles": len(cycles),
             "broadcast_rate": round(
                 sum(1 for c in cycles if c.get("broadcasted")) / max(len(cycles), 1), 4
@@ -777,13 +790,18 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
         from scipy.stats import mannwhitneyu
         tests = {}
         pairs = [
-            ("collaborative", "competitive", "H1: Collab Φ > Competitive Φ"),
-            ("collaborative", "random", "H2: Collab Φ > Random Φ"),
-            ("hybrid", "competitive", "H3: Hybrid Φ > Competitive Φ"),
-            ("competitive", "random", "H4: Competitive Φ > Random Φ"),
-            ("competitive", "no_broadcast", "H5: Broadcast Φ > No-broadcast Φ"),
-            ("single_processor", "single_self_broadcast", "H6: Single processor > self-broadcast"),
-            ("competitive", "homogeneous_competitive", "H7: Differentiated processors > homogeneous"),
+            ("collaborative", "competitive", "H1: Collab Φ > Competitive Φ (DV: phi_delta)"),
+            ("collaborative", "random", "H2: Collab Φ > Random Φ (DV: phi_delta)"),
+            ("hybrid", "competitive", "H3: Hybrid Φ > Competitive Φ (DV: phi_delta)"),
+            ("competitive", "random", "H4: Competitive Φ > Random Φ (DV: phi_delta)"),
+            ("competitive", "no_broadcast", "H5a: Broadcast Φ > No-broadcast Φ (DV: phi_delta)"),
+            ("single_processor", "single_self_broadcast", "H6: Single ≈ self-broadcast (DV: phi_after, equivalence)"),
+            ("competitive", "homogeneous_competitive", "H7a: Differentiated > homogeneous (DV: phi_delta)"),
+        ]
+        # phi_after-based tests for hypotheses where absolute level matters more than delta
+        pairs_phi_after = [
+            ("competitive", "no_broadcast", "H5b: Broadcast Φ >> No-broadcast Φ (DV: phi_after)"),
+            ("competitive", "homogeneous_competitive", "H7b: Differentiated Φ >> homogeneous Φ (DV: phi_after)"),
         ]
         for mode_a, mode_b, label in pairs:
             if mode_a in results and mode_b in results:
@@ -806,6 +824,28 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
                         "n_a": len(a),
                         "n_b": len(b),
                     }
+
+        # Phi_after-based tests (for H5b, H7b — absolute level matters more than delta)
+        for mode_a, mode_b, label in pairs_phi_after:
+            if mode_a in results and mode_b in results:
+                a = [c["phi_after"] for c in results[mode_a]]
+                b = [c["phi_after"] for c in results[mode_b]]
+                if len(a) >= 4 and len(b) >= 4:
+                    stat, pval = mannwhitneyu(a, b, alternative="greater")
+                    d = _cohens_d(a, b)
+                    req_n = _required_sample_size(d, one_tailed=True)
+                    tests[f"{mode_a}_vs_{mode_b}"] = {
+                        "label": label,
+                        "U_statistic": float(stat),
+                        "p_value": round(float(pval), 6),
+                        "significant": pval < 0.05,
+                        "supported": pval < 0.05,
+                        "cohens_d": round(d, 4),
+                        "n_for_80pct_power": int(req_n) if req_n < 1e6 else ">" + str(int(req_n)),
+                        "n_a": len(a),
+                        "n_b": len(b),
+                    }
+
         analysis["hypothesis_tests"] = tests
     except Exception as e:
         analysis["hypothesis_tests"] = {"error": str(e)}
@@ -817,10 +857,14 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
     except Exception as e:
         analysis["ancova"] = {"error": str(e)}
 
-    # Φ calibration anchors
+    # Φ calibration anchors — MUST use experiment parameters for comparability
     try:
         from neural_iit import phi_calibration_anchors
-        analysis["phi_calibration"] = phi_calibration_anchors()
+        analysis["phi_calibration"] = phi_calibration_anchors(
+            n_neurons=64, n_processors=5, n_clusters=30,
+            # Smaller than 512 to be tractable; note in text: calibration is
+            # approximate and uses scaled-down system
+        )
     except Exception as e:
         analysis["phi_calibration"] = {"error": str(e)}
 
@@ -835,10 +879,16 @@ def _cohens_d(group_a: list[float], group_b: list[float]) -> float:
     return float(d)
 
 
-def _required_sample_size(d: float, power: float = 0.8, alpha: float = 0.05) -> float:
-    """Required sample size per group (two-tailed t-test approx)."""
+def _required_sample_size(d: float, power: float = 0.8, alpha: float = 0.05,
+                          one_tailed: bool = False) -> float:
+    """Required sample size per group (normal approximation to t-test).
+
+    Default two-tailed; set one_tailed=True for one-tailed tests (matches
+    Mann-Whitney U with alternative='greater'). The one-tailed correction
+    reduces required n by ~20%.
+    """
     from scipy.stats import norm
-    z_alpha = norm.ppf(1 - alpha / 2)
+    z_alpha = norm.ppf(1 - alpha) if one_tailed else norm.ppf(1 - alpha / 2)
     z_beta = norm.ppf(power)
     return 2 * ((z_alpha + z_beta) / max(abs(d), 1e-10)) ** 2
 
