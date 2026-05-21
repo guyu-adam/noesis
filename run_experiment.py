@@ -69,8 +69,8 @@ STIMULI = [
 # ══════════════════════════════════════════════════════════════════════════════
 
 CYCLES = int(os.environ.get("NOESIS_N_CYCLES", "5"))
-MODES = ["competitive", "random", "no_broadcast", "collaborative", "hybrid", "single_processor",
-         "single_self_broadcast", "homogeneous_competitive"]
+MODES = ["competitive", "random", "no_broadcast", "collaborative", "hybrid",
+         "adaptive", "single_processor", "single_self_broadcast", "homogeneous_competitive"]
 
 cfg = get_config()
 

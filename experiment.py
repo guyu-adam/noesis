@@ -263,7 +263,7 @@ def run_comparison_experiment(
     from workspace import GlobalWorkspace, CollaborativeWorkspace
 
     # Modes that need CollaborativeWorkspace
-    collaborative_modes = {"collaborative", "hybrid"}
+    collaborative_modes = {"collaborative", "hybrid", "adaptive"}
     all_results = {}
 
     for mode in modes:
@@ -481,13 +481,52 @@ def run_neural_cycle(
     elif mode == "no_broadcast":
         pass
 
-    elif mode in ("collaborative", "hybrid"):
+    elif mode in ("collaborative", "hybrid", "adaptive"):
         ctrl = ConsensusController(memory, coalition_size=2, agreement_threshold=0.25)
         cws = workspace if isinstance(workspace, CollaborativeWorkspace) else workspace
 
         world_model = workspace.world_model
+        _attn_std = 0.0
+        DIFF_GATE = 0.02  # threshold below which processors are too similar
 
-        if mode == "hybrid":
+        if mode == "adaptive":
+            # Adaptive coalition: measure processor differentiation first.
+            # If attention weights are near-uniform (std < threshold), fall back
+            # to competitive — coalition adds no value when processors agree.
+            from neural_iit import merge_attention_weighted
+            _vecs = [v.flatten() for v in proposals.values()]
+            _names = list(proposals.keys())
+            _, _attn_meta = merge_attention_weighted(
+                _vecs, _names, workspace_context_vec
+            )
+            _attn_std = _attn_meta.get("attention_weight_std", 0)
+
+            if _attn_std < DIFF_GATE:
+                # Processors too similar → skip coalition, use competitive
+                merge_meta = {"adaptive_gate": "competitive_fallback",
+                              "attention_weight_std": round(_attn_std, 4),
+                              "reason": "processors too similar for coalition"}
+                comp_ctrl = AttentionController(memory)
+                winner_name, winner_content, attention_score = comp_ctrl.select(
+                    text_proposals, "", workspace_for_suppression=workspace
+                )
+                winner_vec = proposals.get(winner_name, np.zeros(n_neurons))
+                if winner_name != "none":
+                    workspace.broadcast(winner_name, winner_content, attention_score,
+                                      content_vec=winner_vec)
+                    broadcasted = True
+                # Skip coalition dispatch below
+                coalition_names = []
+                winner_name = winner_name  # keep competitive winner
+            else:
+                merge_meta = {"adaptive_gate": "coalition",
+                              "attention_weight_std": round(_attn_std, 4)}
+                # Proceed to normal coalition logic below
+
+        if mode == "adaptive" and _attn_std < DIFF_GATE:
+            # Already handled above with competitive fallback — skip coalition
+            pass
+        elif mode == "hybrid":
             comp_ctrl = AttentionController(memory)
             top_name, top_content, top_score = comp_ctrl.select(
                 text_proposals, "", workspace_for_suppression=workspace
@@ -502,14 +541,15 @@ def run_neural_cycle(
                 top2, world_model, "", workspace
             )
         else:
+            # collaborative or adaptive (with sufficient differentiation)
             coalition_names, merged_text, attention_score = ctrl.select_coalition(
                 text_proposals, world_model, "", workspace
             )
 
-        winner_name = f"coalition:{'+'.join(coalition_names)}" if coalition_names else "none"
+        winner_name = f"coalition:{'+'.join(coalition_names)}" if coalition_names else winner_name
         # Merge coalition activation vectors with attention-weighted strategy
-        # (preserves differentiation — mean merge was cancelling complementary info)
-        merge_meta = {}
+        if mode != "adaptive" or _attn_std >= DIFF_GATE:
+            merge_meta = {}
         if coalition_names:
             coalition_vecs = [proposals[n] for n in coalition_names if n in proposals]
             coalition_name_list = [n for n in coalition_names if n in proposals]
@@ -678,7 +718,7 @@ def run_neural_comparison(
     from memory import SemanticMemory
     from workspace import GlobalWorkspace, CollaborativeWorkspace
 
-    collaborative_modes = {"collaborative", "hybrid"}
+    collaborative_modes = {"collaborative", "hybrid", "adaptive"}
     all_results = {}
 
     total_cycles = len(stimuli_vecs) * cycles_per_stimulus * len(modes)
