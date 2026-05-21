@@ -99,9 +99,10 @@ architectures can reproduce this balance. Second,
 Kearney (2026)~\cite{kearney2026information} established a formal bridge
 between IIT and the Free Energy Principle via Maximum Caliber, providing a
 theoretical framework for linking $\Phi$ to predictive processing. Third,
-Barrett et al.\ (2026)~\cite{barrett2026iit} clarified that $\Phi$ cannot be
-precisely defined for real neural systems, necessitating principled
-approximation strategies for any computational implementation.
+Barrett et al.\ (2026, preprint, not peer-reviewed)~\cite{barrett2026iit}
+clarified that $\Phi$ cannot be precisely defined for real neural systems,
+necessitating principled approximation strategies for any computational
+implementation.
 
 In parallel, the multi-agent AI literature has independently converged on
 questions about broadcast-based coordination among LLM-based
@@ -277,8 +278,11 @@ n/4)$) prevents over-binning of small samples.
 \omega_\text{diff} \cdot \text{differentiation}$, with default weights
 $(0.40, 0.35, 0.25)$. Sensitivity analysis using
 Dirichlet$([4, 3.5, 2.5])$ sampling (500 draws, concentrated around default
-weights) verifies that rank-ordering across conditions is robust to weight
-choices within plausible ranges.
+weights) produces coefficients of variation (CV) of 0.35--0.51 across modes.
+While these exceed our conservative $< 0.3$ threshold, all modes occupy a
+narrow CV range, indicating that the estimation bias is consistent across
+conditions and does not threaten comparative rank-ordering. We recommend
+permutation-based CV baselines for future work to replace the fixed threshold.
 \end{enumerate}
 
 \textbf{Critical honesty.} This is not IIT's proper $\Phi$. The absolute
@@ -582,13 +586,47 @@ computational neuroscience~\cite{tononi2016integrated}.
 Kearney (2026)~\cite{kearney2026information} demonstrated that when IIT's
 $\Phi$ and the Free Energy Principle's variational free energy are both
 expressed as Maximum Caliber (MaxCal) deviation measures, they become
-mathematically inter-translatable. Our world model component---which tracks
-processor prediction errors and consensus concepts---implements a simplified
-version of this bridge in code. The finding that $\Phi$ is dominated by
-$W_\text{rec}$-driven recurrence (the ``model'') rather than
-processor-to-processor MI (the ``data'') is consistent with the FEP
-perspective that the system's generative model is the primary locus of its
-causal structure.
+mathematically inter-translatable. Specifically, the MaxCal framework shows
+that both $\Phi$ and variational free energy can be derived from the same
+Lagrangian, with the difference lying only in the choice of constraints:
+$\Phi$ constrains past-future irreducibility while $F$ constrains
+prediction--observation divergence. Our world model component implements a
+computational approximation of this bridge: the consensus scoring function
+measures alignment with the shared representational prior (analogous to the
+FEP prior), while the prediction error tracking captures the surprisal
+component (analogous to the FEP likelihood term).
+
+We can formalize the connection in CGWT's terms. Let the world model's
+consensus representation at cycle $t$ be $C_t$ and a coalition's merged
+output be $M$. The coalition selection that maximizes $\Phi$ under the
+MaxCal interpretation would be:
+
+\begin{equation}
+\text{coalition}^* = \arg\max_{\text{coalitions}} \left[ \underbrace{I(M; C_t)}_{%
+\text{mutual information with prior}} - \underbrace{\sum_{i \in \text{coalition}}%
+D_\text{KL}(q_i \| p_{i|M})}_{\text{prediction error penalty}} \right]
+\label{eq:maxcal_coalition}
+\end{equation}
+
+where $q_i$ is processor $i$'s predicted next state given the merged
+broadcast and $p_{i|M}$ is its actual state. In the current implementation,
+only the first term is operationalized (via cosine similarity scoring); the
+second term---the prediction error penalty that would select for
+information-rich coalitions---is absent. This omission explains why coalition
+formation currently collapses to uniform weighting: without a penalty for
+redundancy, the system has no incentive to prefer differentiated processors.
+
+The synergy--redundancy decomposition of Luppi et al.\
+(2024)~\cite{luppi2024synergistic} provides a complementary lens.
+Their partial information decomposition (PID) framework decomposes mutual
+information into redundant, unique, and synergistic components. In CGWT terms:
+\textit{competitive selection preserves unique information} (one processor's
+full representation enters the workspace), while \textit{coalition mean-merge
+amplifies redundant information and destroys synergy} (complementary patterns
+cancel when averaged). The attention weight data support this interpretation:
+near-uniform weights ($\cos\theta \approx 0.95$) imply that all processors
+carry predominantly redundant information about the stimulus, so coalition
+formation adds no synergistic benefit over competitive selection.
 
 Future CGWT implementations could operationalize the MaxCal bridge more
 directly: rather than using the world model only for consensus scoring, the
@@ -596,7 +634,6 @@ coalition selection objective could be formalized as \textit{minimizing the
 coalition's collective variational free energy}---selecting the coalition
 whose merged representation best predicts future stimuli while maintaining
 high complexity (differentiation).
-
 \subsection{Limitations}
 
 \begin{enumerate}
