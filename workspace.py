@@ -42,6 +42,7 @@ class GlobalWorkspace:
         self.suppress_window: int = 3  # number of cycles to suppress repeats
         self._lock = threading.Lock()
         self._cycle_count: int = 0
+        self._no_broadcast_flag: bool = False
         from world_model import WorldModel
         self.world_model = WorldModel()
 
@@ -102,6 +103,7 @@ class GlobalWorkspace:
         Return current workspace state as a vector for neural processor consumption.
 
         Priority:
+          0. If _no_broadcast_flag is set, return zeros (processors isolated)
           1. Last history entry's content_vec (actual neural activation from broadcast)
           2. Text-based fallback (ASCII encoding of current_content)
 
@@ -109,6 +111,9 @@ class GlobalWorkspace:
             n_neurons: Target dimension (padded/truncated to this if provided).
         """
         import numpy as np
+        # No-broadcast: processors receive zero context (genuinely isolated)
+        if self._no_broadcast_flag:
+            return np.zeros(n_neurons or 32, dtype=np.float32)
         # Check last broadcast history for stored neural activation vector
         if self.history and "content_vec" in self.history[-1]:
             vec = np.asarray(self.history[-1]["content_vec"], dtype=np.float32).flatten()
@@ -135,6 +140,7 @@ class GlobalWorkspace:
             self.history = []
             self.suppressed = set()
             self._cycle_count = 0
+            self._no_broadcast_flag = False
             from world_model import WorldModel
             self.world_model = WorldModel()
 

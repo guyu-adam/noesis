@@ -149,7 +149,11 @@ class NeuralProcessor(ABC):
                 cv = np.asarray(context_vec, dtype=np.float32).flatten()[:self.n_neurons]
                 if len(cv) < self.n_neurons:
                     cv = np.pad(cv, (0, self.n_neurons - len(cv)))
-                h = 0.7 * h + 0.3 * cv
+                # Strong context injection: broadcast causally shapes processor dynamics.
+                # Previous weight 0.3 was too weak — broadcast was "write-only",
+                # recording history without measurably affecting processor states.
+                alpha = float(os.environ.get("NOESIS_CTX_WEIGHT", "0.6"))
+                h = (1.0 - alpha) * h + alpha * cv
 
             # Move to GPU for accelerated recurrence
             h_dev = _array(h)

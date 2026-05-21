@@ -479,12 +479,17 @@ def run_neural_cycle(
         winner_vec = proposals.get(winner_name, np.zeros(n_neurons))
 
     elif mode == "no_broadcast":
-        # Record processor states in workspace history so TPM-based EI
-        # can be computed on an equal footing with broadcast modes.
-        # Without this, no_broadcast phi_within is identically zero by
-        # construction, creating a circular finding for H5.
+        # True null condition: no context injection, processors operate
+        # in isolation. Workspace records processor ensemble state for
+        # TPM construction (needed for comparable EI computation), but
+        # this state is NOT fed back as context to processors.
+        # Distinguished from broadcast modes by: (a) no context injection
+        # in process(), (b) broadcasted=False in cycle record.
         mean_proc = np.mean([v for v in proposals.values()], axis=0)
         workspace.broadcast("none", "(no broadcast)", 0.0, content_vec=mean_proc)
+        # After recording, reset workspace read to zeros so next cycle
+        # gets no context (processors stay isolated)
+        workspace._no_broadcast_flag = True
 
     elif mode in ("collaborative", "hybrid", "adaptive"):
         ctrl = ConsensusController(memory, coalition_size=2, agreement_threshold=0.25)
