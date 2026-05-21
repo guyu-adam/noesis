@@ -401,9 +401,27 @@ def run_neural_cycle(
     from neural_iit import (
         neural_phi, neural_phi_approx, phi_sensitivity,
         neural_information_geometry, cluster_activation_states,
+        merge_coalition, phi_decomposed,
     )
 
-    processors = _get_neural_processors(n_neurons, n_input)
+    # ── Mode-specific processor setup ───────────────────────────────────
+    if mode == "homogeneous_competitive":
+        # All 5 processors of the same type (Integrator) — tests whether
+        # differentiation matters or just having 5 replicas is enough
+        from agents.neural_agents import NeuralIntegrator
+        _homogeneous = {
+            "p1": NeuralIntegrator(n_neurons, n_input, seed=101),
+            "p2": NeuralIntegrator(n_neurons, n_input, seed=102),
+            "p3": NeuralIntegrator(n_neurons, n_input, seed=103),
+            "p4": NeuralIntegrator(n_neurons, n_input, seed=104),
+            "p5": NeuralIntegrator(n_neurons, n_input, seed=105),
+        }
+        _proc_names = list(_homogeneous.keys())
+        processors = _homogeneous
+    else:
+        processors = _get_neural_processors(n_neurons, n_input)
+        _proc_names = ["perceptor", "reasoner", "evaluator", "integrator", "predictor"]
+
     workspace_context_vec = (
         workspace.read_vec(n_neurons) if hasattr(workspace, 'read_vec')
         else np.zeros(n_neurons)
@@ -422,13 +440,14 @@ def run_neural_cycle(
 
     # ── Phase 2: Neural processors process stimulus ────────────────────
     proposals = {}
-    processor_names = ["perceptor", "reasoner", "evaluator", "integrator", "predictor"]
+    processor_names = _proc_names
 
-    if mode in ("single_agent", "single_processor"):
+    if mode in ("single_agent", "single_processor", "single_self_broadcast"):
+        proc = list(processors.values())[0]
         try:
-            proposals["reasoner"] = processors["reasoner"].process(
+            proposals["reasoner"] = proc.process(
                 stimulus_vec, workspace_context_vec
-            )
+            ) if hasattr(proc, 'process') else np.zeros(n_neurons)
         except Exception:
             proposals["reasoner"] = np.zeros(n_neurons)
     else:
@@ -450,6 +469,7 @@ def run_neural_cycle(
     # Convert neural proposals to text summaries for the text-based controllers
     # (AttentionController and ConsensusController operate on text)
     text_proposals = {}
+    merge_meta = {}
     for name, vec in proposals.items():
         text_proposals[name] = _neural_vec_to_text(vec, name)
 
@@ -487,10 +507,20 @@ def run_neural_cycle(
             )
 
         winner_name = f"coalition:{'+'.join(coalition_names)}" if coalition_names else "none"
-        # Merge coalition activation vectors
+        # Merge coalition activation vectors with attention-weighted strategy
+        # (preserves differentiation — mean merge was cancelling complementary info)
+        merge_meta = {}
         if coalition_names:
             coalition_vecs = [proposals[n] for n in coalition_names if n in proposals]
-            winner_vec = np.mean(coalition_vecs, axis=0) if coalition_vecs else np.zeros(n_neurons)
+            coalition_name_list = [n for n in coalition_names if n in proposals]
+            if coalition_vecs:
+                winner_vec, merge_meta = merge_coalition(
+                    coalition_vecs, coalition_name_list,
+                    strategy="attention",
+                    workspace_vec=workspace_context_vec,
+                )
+            else:
+                winner_vec = np.zeros(n_neurons)
 
         if coalition_names and isinstance(workspace, CollaborativeWorkspace):
             workspace.collaborative_broadcast(
@@ -517,6 +547,14 @@ def run_neural_cycle(
             workspace.broadcast(winner_name, winner_content, attention_score,
                               content_vec=winner_vec)
             broadcasted = True
+
+    # single_self_broadcast: same processor broadcasts back to itself
+    if mode == "single_self_broadcast":
+        winner_name = "reasoner"
+        winner_vec = proposals.get("reasoner", np.zeros(n_neurons))
+        winner_content = _neural_vec_to_text(winner_vec, winner_name)
+        workspace.broadcast(winner_name, winner_content, 1.0, content_vec=winner_vec)
+        broadcasted = True
 
     # Standard broadcast for non-collaborative modes
     if mode in ("random", "single_agent", "single_processor") and winner_name != "none":
@@ -563,6 +601,16 @@ def run_neural_cycle(
     except Exception:
         sensitivity = {"error": "sensitivity_analysis_failed"}
 
+    # ── Phase 9: Φ decomposition (within vs between) ────────────────────
+    try:
+        decomposed = phi_decomposed(
+            winner_vec, {k: v for k, v in proposals.items()},
+            workspace.history if hasattr(workspace, 'history') else [],
+        )
+    except Exception:
+        decomposed = {"phi_total": 0.0, "phi_within": 0.0, "phi_between": 0.0,
+                      "phi_within_fraction": 0.0}
+
     result = {
         "stimulus_vec_shape": list(stimulus_vec.shape),
         "proposals": {k: _neural_vec_summary(v) for k, v in proposals.items()},
@@ -574,9 +622,11 @@ def run_neural_cycle(
         "phi_before": phi_before,
         "phi_after": phi_after,
         "phi_delta": round(phi_after - phi_before, 6),
+        "phi_decomposed": decomposed,
         "phi_sensitivity": sensitivity,
         "fisher_trace": geo_metrics["fisher_trace"],
         "complexity": round(complexity, 6),
+        "merge_metadata": merge_meta,
         "narrative": narrative,
         "mode": mode,
         "processor_type": "neural_rnn",
@@ -618,7 +668,8 @@ def run_neural_comparison(
 
     if modes is None:
         modes = ["competitive", "random", "no_broadcast",
-                 "collaborative", "hybrid", "single_processor"]
+                 "collaborative", "hybrid", "single_processor",
+                 "single_self_broadcast", "homogeneous_competitive"]
 
     cfg = get_config()
     n_neurons = n_neurons or cfg.n_neurons
@@ -667,8 +718,9 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
     """
     Statistical comparison of neural Φ across experimental modes.
 
-    Uses Mann-Whitney U (non-parametric, one-tailed) on phi_delta values.
-    Also reports phi_sensitivity CV distributions and complexity metrics.
+    Uses both Mann-Whitney U (non-parametric) and ANCOVA (phi_before as covariate)
+    on phi_delta values. Also reports Cohen's d effect sizes, power analysis,
+    phi_sensitivity CV distributions, phi_decomposition, and complexity metrics.
     """
     import numpy as np
 
@@ -683,6 +735,19 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
             if isinstance(c.get("phi_sensitivity"), dict)
         ]
         complexities = [c.get("complexity", 0) for c in cycles]
+        # Φ decomposition
+        phi_withins = [
+            c.get("phi_decomposed", {}).get("phi_within", 0)
+            for c in cycles
+        ]
+        phi_betweens = [
+            c.get("phi_decomposed", {}).get("phi_between", 0)
+            for c in cycles
+        ]
+        merge_diff_rets = [
+            c.get("merge_metadata", {}).get("differentiation_retention", 0)
+            for c in cycles
+        ]
 
         analysis[mode] = {
             "mean_phi_delta": round(float(np.mean(phi_deltas)), 6),
@@ -693,6 +758,14 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
             "max_phi_delta": round(float(np.max(phi_deltas)), 6),
             "mean_complexity": round(float(np.mean(complexities)), 6),
             "mean_sensitivity_cv": round(float(np.mean(phi_sensitivities)), 6) if phi_sensitivities else 0,
+            # Φ decomposition
+            "mean_phi_within": round(float(np.mean(phi_withins)), 6),
+            "mean_phi_between": round(float(np.mean(phi_betweens)), 6),
+            "phi_within_fraction": round(
+                float(np.mean(phi_withins)) / max(float(np.mean(phi_afters)), 1e-10), 4
+            ),
+            # Merge fidelity
+            "mean_merge_diff_retention": round(float(np.mean(merge_diff_rets)), 6),
             "n_cycles": len(cycles),
             "broadcast_rate": round(
                 sum(1 for c in cycles if c.get("broadcasted")) / max(len(cycles), 1), 4
@@ -709,6 +782,8 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
             ("hybrid", "competitive", "H3: Hybrid Φ > Competitive Φ"),
             ("competitive", "random", "H4: Competitive Φ > Random Φ"),
             ("competitive", "no_broadcast", "H5: Broadcast Φ > No-broadcast Φ"),
+            ("single_processor", "single_self_broadcast", "H6: Single processor > self-broadcast"),
+            ("competitive", "homogeneous_competitive", "H7: Differentiated processors > homogeneous"),
         ]
         for mode_a, mode_b, label in pairs:
             if mode_a in results and mode_b in results:
@@ -716,12 +791,18 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
                 b = [c["phi_delta"] for c in results[mode_b]]
                 if len(a) >= 4 and len(b) >= 4:
                     stat, pval = mannwhitneyu(a, b, alternative="greater")
+                    # Cohen's d
+                    d = _cohens_d(a, b)
+                    # Required n for 80% power at observed d
+                    req_n = _required_sample_size(d) if abs(d) > 1e-10 else float('inf')
                     tests[f"{mode_a}_vs_{mode_b}"] = {
                         "label": label,
                         "U_statistic": float(stat),
                         "p_value": round(float(pval), 6),
                         "significant": pval < 0.05,
                         "supported": pval < 0.05,
+                        "cohens_d": round(d, 4),
+                        "n_for_80pct_power": int(req_n) if req_n != float('inf') else ">10000",
                         "n_a": len(a),
                         "n_b": len(b),
                     }
@@ -729,7 +810,119 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
     except Exception as e:
         analysis["hypothesis_tests"] = {"error": str(e)}
 
+    # ANCOVA on phi_after with phi_before as covariate
+    try:
+        ancova_results = _run_ancova(results)
+        analysis["ancova"] = ancova_results
+    except Exception as e:
+        analysis["ancova"] = {"error": str(e)}
+
+    # Φ calibration anchors
+    try:
+        from neural_iit import phi_calibration_anchors
+        analysis["phi_calibration"] = phi_calibration_anchors()
+    except Exception as e:
+        analysis["phi_calibration"] = {"error": str(e)}
+
     return analysis
+
+
+def _cohens_d(group_a: list[float], group_b: list[float]) -> float:
+    """Cohen's d effect size for two independent groups."""
+    import numpy as np
+    a, b = np.array(group_a), np.array(group_b)
+    d = (np.mean(a) - np.mean(b)) / max(np.sqrt((np.var(a) + np.var(b)) / 2), 1e-10)
+    return float(d)
+
+
+def _required_sample_size(d: float, power: float = 0.8, alpha: float = 0.05) -> float:
+    """Required sample size per group (two-tailed t-test approx)."""
+    from scipy.stats import norm
+    z_alpha = norm.ppf(1 - alpha / 2)
+    z_beta = norm.ppf(power)
+    return 2 * ((z_alpha + z_beta) / max(abs(d), 1e-10)) ** 2
+
+
+def _run_ancova(results: dict[str, list[dict]]) -> dict:
+    """
+    ANCOVA on phi_after with phi_before as covariate across modes.
+
+    Uses proper linear model: phi_after ~ mode * phi_before, then tests mode
+    main effect via Type III SS comparison to reduced model (phi_after ~ phi_before).
+    """
+    import numpy as np
+
+    all_afters = []
+    all_befores = []
+    all_modes = []
+    for mode, cycles in results.items():
+        for c in cycles:
+            all_afters.append(c["phi_after"])
+            all_befores.append(c["phi_before"])
+            all_modes.append(mode)
+
+    if len(set(all_modes)) < 2:
+        return {"error": "need at least 2 modes"}
+
+    afters = np.array(all_afters)
+    befores = np.array(all_befores)
+    modes_unique = sorted(set(all_modes))
+    k = len(modes_unique)
+    N = len(afters)
+
+    # Reduced model: phi_after ~ phi_before (no mode effect)
+    b_mean = np.mean(befores)
+    a_mean = np.mean(afters)
+    slope_reduced = np.sum((befores - b_mean) * (afters - a_mean)) / max(np.sum((befores - b_mean) ** 2), 1e-10)
+    intercept_reduced = a_mean - slope_reduced * b_mean
+    pred_reduced = intercept_reduced + slope_reduced * befores
+    ss_reduced = np.sum((afters - pred_reduced) ** 2)
+
+    # Full model: phi_after ~ phi_before + mode (OLS via design matrix)
+    # Design matrix: [intercept, phi_before, mode_dummies[1:]]
+    from numpy.linalg import lstsq
+
+    X_cols = [np.ones(N), befores]
+    for m in modes_unique[1:]:
+        X_cols.append(np.array([1.0 if x == m else 0.0 for x in all_modes]))
+    X = np.column_stack(X_cols)
+
+    beta, residuals, rank, _ = lstsq(X, afters)
+    pred_full = X @ beta
+    ss_full = np.sum((afters - pred_full) ** 2)
+
+    # F-test for mode contribution
+    df_reduced = N - 2       # intercept + slope
+    df_full = N - (k + 1)    # intercept + slope + (k-1) mode dummies
+    df_diff = k - 1
+
+    ss_diff = ss_reduced - ss_full
+    ms_diff = ss_diff / max(df_diff, 1)
+    ms_full = ss_full / max(df_full, 1)
+    F_stat = ms_diff / max(ms_full, 1e-10)
+
+    from scipy.stats import f as fdist
+    p_value = 1.0 - fdist.cdf(F_stat, df_diff, df_full)
+
+    # Adjusted means (evaluated at grand mean of phi_before)
+    adjusted_means = {modes_unique[0]: round(float(beta[0] + beta[1] * b_mean), 6)}
+    for j, m in enumerate(modes_unique[1:], 2):
+        adjusted_means[m] = round(float(beta[0] + beta[1] * b_mean + beta[j]), 6)
+
+    # Eta-squared (effect size)
+    eta_sq = ss_diff / max(ss_reduced, 1e-10)
+
+    return {
+        "method": "ANCOVA on phi_after ~ mode + phi_before (OLS)",
+        "F_statistic": round(float(F_stat), 4),
+        "df1": int(df_diff),
+        "df2": int(df_full),
+        "p_value": round(float(p_value), 6),
+        "significant": p_value < 0.05,
+        "eta_squared": round(float(eta_sq), 6),
+        "adjusted_means": adjusted_means,
+        "interpretation": "Significant means mode affects Φ after controlling for pre-broadcast baseline",
+    }
 
 
 def _neural_vec_to_text(vec: "np.ndarray", label: str = "") -> str:

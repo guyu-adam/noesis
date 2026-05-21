@@ -69,7 +69,8 @@ STIMULI = [
 # ══════════════════════════════════════════════════════════════════════════════
 
 CYCLES = int(os.environ.get("NOESIS_N_CYCLES", "5"))
-MODES = ["competitive", "random", "no_broadcast", "collaborative", "hybrid", "single_processor"]
+MODES = ["competitive", "random", "no_broadcast", "collaborative", "hybrid", "single_processor",
+         "single_self_broadcast", "homogeneous_competitive"]
 
 cfg = get_config()
 
@@ -103,6 +104,31 @@ print(f"[EXPERIMENTS DONE] {time.strftime('%H:%M:%S')}", flush=True)
 
 analysis = analyze_neural_comparison(results)
 
+# Processor differentiation validation
+_processor_similarity = {}
+try:
+    from agents.neural_base import _get_neural_processors as _gnp
+    _procs = _gnp(cfg.n_neurons, cfg.n_input)
+    _names = ["perceptor", "reasoner", "evaluator", "integrator", "predictor"]
+    for i, ni in enumerate(_names):
+        for j, nj in enumerate(_names):
+            if i < j and hasattr(_procs[ni], 'read_proposal') and hasattr(_procs[nj], 'read_proposal'):
+                vi = _procs[ni].read_proposal()
+                vj = _procs[nj].read_proposal()
+                sim = float(np.dot(vi.flatten(), vj.flatten()) /
+                           max(np.linalg.norm(vi) * np.linalg.norm(vj), 1e-10))
+                _processor_similarity[f"{ni}_vs_{nj}"] = round(sim, 4)
+except Exception:
+    _processor_similarity = {"error": "similarity_computation_failed"}
+
+# Experiment config lock
+import subprocess
+_pip_freeze = ""
+try:
+    _pip_freeze = subprocess.run(["pip", "freeze"], capture_output=True, text=True, timeout=10).stdout.strip()[:5000]
+except Exception:
+    _pip_freeze = "pip_freeze_unavailable"
+
 output = {
     "results_summary": {},
     "analysis": analysis,
@@ -116,11 +142,14 @@ output = {
         "total_neurons": cfg.total_neurons,
         "n_state_clusters": cfg.n_state_clusters,
         "gpu": cfg.gpu,
+        "merge_strategy": "attention_weighted",
         "n_stimuli": len(STIMULI),
         "cycles_per_stimulus": CYCLES,
         "modes": MODES,
         "total_cycles": total,
         "timestamp": time.strftime('%Y-%m-%dT%H:%M:%S'),
+        "processor_pairwise_similarity": _processor_similarity,
+        "dependencies": _pip_freeze[:3000],
     },
 }
 
@@ -129,6 +158,9 @@ for mode, cycles in results.items():
     phi_afters = [c["phi_after"] for c in cycles]
     phi_befores = [c["phi_before"] for c in cycles]
     complexities = [c.get("complexity", 0) for c in cycles]
+    phi_withins = [c.get("phi_decomposed", {}).get("phi_within", 0) for c in cycles]
+    phi_betweens = [c.get("phi_decomposed", {}).get("phi_between", 0) for c in cycles]
+    merge_rets = [c.get("merge_metadata", {}).get("differentiation_retention", 0) for c in cycles]
     output["results_summary"][mode] = {
         "mean_phi_after":  round(float(np.mean(phi_afters)), 6),
         "std_phi_after":   round(float(np.std(phi_afters)), 6),
@@ -137,6 +169,9 @@ for mode, cycles in results.items():
         "std_phi_delta":   round(float(np.std(phi_deltas)), 6),
         "max_phi_delta":   round(float(np.max(phi_deltas)), 6),
         "mean_complexity": round(float(np.mean(complexities)), 6),
+        "mean_phi_within": round(float(np.mean(phi_withins)), 6),
+        "mean_phi_between": round(float(np.mean(phi_betweens)), 6),
+        "mean_merge_diff_retention": round(float(np.mean(merge_rets)), 6),
         "n_cycles":        len(cycles),
         "broadcast_rate":  round(sum(1 for c in cycles if c.get("broadcasted")) / max(len(cycles), 1), 4),
     }
@@ -157,11 +192,29 @@ with open(raw_path, "w", encoding="utf-8") as f:
         for c in cycles:
             f.write(json.dumps(c, cls=NpEncoder, ensure_ascii=False) + "\n")
 
+# Save experiment config lock (full reproducibility)
+config_path = os.path.join(out_dir, f"experiment_config_{ts}.json")
+with open(config_path, "w", encoding="utf-8") as f:
+    json.dump(output["metadata"], f, indent=2, cls=NpEncoder, ensure_ascii=False)
+
 print(f"[SAVED] {out_path}", flush=True)
 print(f"[SAVED] {raw_path}", flush=True)
 print(f"[DONE] {time.strftime('%H:%M:%S')}", flush=True)
 print(json.dumps(output["results_summary"], indent=2))
-print("Hypothesis tests:")
+print("Hypothesis tests (Mann-Whitney U on phi_delta):")
 for k, v in analysis.get("hypothesis_tests", {}).items():
     if isinstance(v, dict):
-        print(f"  {k}: p={v.get('p_value','?')}, supported={v.get('supported','?')}")
+        print(f"  {k}: p={v.get('p_value','?')}, d={v.get('cohens_d','?')}, "
+              f"supported={v.get('supported','?')}, n_for_80pct={v.get('n_for_80pct_power','?')}")
+ancova = analysis.get("ancova", {})
+if isinstance(ancova, dict) and "F_statistic" in ancova:
+    print(f"\nANCOVA: F({ancova.get('df_between',0)},{ancova.get('df_within',0)})={ancova.get('F_statistic','?')}, "
+          f"p={ancova.get('p_value','?')}, significant={ancova.get('significant','?')}")
+    print("Adjusted means:", ancova.get("adjusted_means", {}))
+cal = analysis.get("phi_calibration", {})
+if isinstance(cal, dict) and "random_system" in cal:
+    print(f"\nΦ calibration: random={cal.get('random_system',0)}, deterministic={cal.get('deterministic_cycle',0)}, noise={cal.get('noise_driven',0)}")
+sim = output["metadata"].get("processor_pairwise_similarity", {})
+if sim and "error" not in sim:
+    mean_sim = float(np.mean(list(sim.values()))) if sim else 0
+    print(f"Processor pairwise similarity: mean={mean_sim:.4f}, all={sim}")

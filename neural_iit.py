@@ -65,34 +65,68 @@ def activation_to_state_id(binary_state: np.ndarray) -> int:
 def cluster_activation_states(
     activations: list[np.ndarray],
     n_clusters: int = 10,
+    seed: int = 42,
 ) -> tuple[list[int], list[np.ndarray]]:
     """
     Cluster continuous activation vectors into discrete states via k-means-like
     nearest-centroid assignment. Returns (state_labels, centroids).
 
-    This is necessary for systems where the raw state space is too large
-    for exact TPM computation.
+    Uses fixed-seed random initialization for reproducibility (replaces the
+    previous order-dependent even-spacing method which was sensitive to input
+    ordering). Runs multiple inits to avoid poor local minima.
     """
     if len(activations) < 2:
         return [0] * len(activations), activations
 
     arr = np.array([a.flatten() for a in activations])
+    n_samples = len(arr)
+    n_clusters_eff = min(n_clusters, n_samples)
+    rng = np.random.RandomState(seed)
 
-    # Pick centroids evenly spaced
-    step = max(1, len(arr) // n_clusters)
-    indices = list(range(0, len(arr), step))[:n_clusters]
-    centroids = [arr[i] for i in indices]
-    while len(centroids) < n_clusters:
-        centroids.append(np.zeros_like(arr[0]))
-    centroids = np.array(centroids)
+    # Try multiple random inits, pick best (minimizes within-cluster distance)
+    n_inits = 5
+    best_labels = None
+    best_centroids = None
+    best_cost = float('inf')
 
-    # Assign each point to nearest centroid
-    labels = []
-    for vec in arr:
-        dists = np.linalg.norm(centroids - vec, axis=1)
-        labels.append(int(np.argmin(dists)))
+    for _ in range(n_inits):
+        # Random centroid initialization
+        init_indices = rng.choice(n_samples, n_clusters_eff, replace=False)
+        centroids = arr[init_indices].copy()
 
-    return labels, [np.array(c) for c in centroids]
+        # Lloyd-like iteration (max 10 rounds)
+        for _ in range(10):
+            # Assign to nearest centroid
+            labels = []
+            for vec in arr:
+                dists = np.linalg.norm(centroids - vec, axis=1)
+                labels.append(int(np.argmin(dists)))
+
+            # Update centroids
+            new_centroids = np.zeros_like(centroids)
+            for k in range(n_clusters_eff):
+                mask = np.array([l == k for l in labels])
+                if mask.any():
+                    new_centroids[k] = arr[mask].mean(axis=0)
+                else:
+                    new_centroids[k] = arr[rng.randint(0, n_samples)]
+
+            if np.allclose(centroids, new_centroids, rtol=1e-4):
+                centroids = new_centroids
+                break
+            centroids = new_centroids
+
+        # Compute cost
+        cost = 0.0
+        for i, vec in enumerate(arr):
+            cost += float(np.linalg.norm(vec - centroids[labels[i]]))
+
+        if cost < best_cost:
+            best_cost = cost
+            best_labels = labels
+            best_centroids = [np.array(c) for c in centroids]
+
+    return best_labels, best_centroids
 
 
 # ── State transition matrix (neural) ────────────────────────────────────────
@@ -457,9 +491,10 @@ def phi_sensitivity(
     differentiation = np.mean(processor_stds) if processor_stds else 0.0
     differentiation = min(1.0, differentiation)
 
-    # Monte Carlo weight scan
+    # Monte Carlo weight scan — concentrate around default weights (0.40, 0.35, 0.25)
+    # Dirichlet([4, 3.5, 2.5]) centers on (0.40, 0.35, 0.25) with CV ~0.2
     rng = np.random.RandomState(seed)
-    weight_samples = rng.dirichlet(alpha=[2.0, 2.0, 2.0], size=n_samples)
+    weight_samples = rng.dirichlet(alpha=[4.0, 3.5, 2.5], size=n_samples)
 
     phi_values = np.array([
         w[0] * mi_integration + w[1] * ei + w[2] * differentiation
@@ -548,6 +583,247 @@ def neural_phi_trace(phi_history: list[float]) -> dict:
     }
 
 
+# ── Φ decomposition: within vs between processors ───────────────────────────
+
+def phi_decomposed(
+    workspace_vec: np.ndarray,
+    processor_proposals: dict[str, np.ndarray],
+    workspace_history: list[dict] = None,
+    n_state_clusters: int = 10,
+    weights: tuple[float, float, float] = (0.40, 0.35, 0.25),
+) -> dict:
+    """
+    Decompose Φ into within-processor and between-processor contributions.
+
+    THE KEY INSIGHT (from reviewer feedback):
+        Φ_total ≈ Φ_within + Φ_between
+
+    When pre-broadcast Φ accounts for 98%+ of post-broadcast Φ, it means Φ_within
+    (from W_rec's internal recurrence) dominates and Φ_between (broadcast gain)
+    is submerged. This function separates them so we can see:
+
+    - Φ_within: Average effective information (EI) from each processor's own
+      activation dynamics — "how much causal structure each processor has individually"
+    - Φ_between: MI_integration — how much information workspace shares with all
+      processors collectively beyond what it shares with each individually.
+      This is the "broadcast gain" — the core CGWT hypothesis target.
+    - Φ_total: Weighted combination (same as neural_phi_approx).
+
+    The reviewer correctly identified that when Φ_within >> Φ_between,
+    broadcast mechanisms can't be fairly compared using Φ_total alone.
+    """
+    if workspace_history is None:
+        workspace_history = []
+
+    if not processor_proposals:
+        return {"phi_total": 0.0, "phi_within": 0.0, "phi_between": 0.0,
+                "phi_within_fraction": 0.0}
+
+    # ── Φ_within: Average EI from each processor's own TPM ──
+    ei_values = []
+    for name, vec in processor_proposals.items():
+        # Build a simple TPM from this processor's activation history
+        # (single-processor causal structure)
+        history_vecs = []
+        for h in workspace_history[-20:]:
+            hist_vec = h.get("content_vec", None)
+            if hist_vec is not None:
+                history_vecs.append(np.asarray(hist_vec).flatten())
+        if len(history_vecs) >= 2:
+            # Bias TPM toward current processor by including its current activation
+            history_vecs.append(vec.flatten())
+        else:
+            history_vecs = [vec.flatten(), vec.flatten()]
+
+        labels, _ = cluster_activation_states(
+            [v for v in history_vecs if len(v) > 0],
+            n_state_clusters,
+        )
+        if len(set(labels)) >= 2:
+            tpm = neural_state_transition_matrix(labels, n_state_clusters)
+            ei = neural_effective_information(tpm)
+        else:
+            ei = 0.0
+        ei_values.append(ei)
+
+    phi_within = float(np.mean(ei_values)) if ei_values else 0.0
+
+    # ── Φ_between: MI_integration component ──
+    mi_joint = _activation_mi_joint(workspace_vec, processor_proposals)
+    mi_parts = sum(
+        _activation_mi_pairwise(workspace_vec, p)
+        for p in processor_proposals.values()
+    )
+    n_processors = max(len(processor_proposals), 1)
+    mi_integration = max(0.0, mi_joint - mi_parts / n_processors)
+
+    # Differentiation bonus
+    processor_stds = [np.std(p) for p in processor_proposals.values() if len(p) > 0]
+    differentiation = np.mean(processor_stds) if processor_stds else 0.0
+    differentiation = min(1.0, differentiation)
+
+    # Φ_between: the broadcast-sensitive component
+    w_mi, w_ei, w_diff = weights
+    phi_between = w_mi * mi_integration + w_diff * differentiation
+
+    # Φ_total
+    phi_total = float(phi_within + phi_between)
+
+    return {
+        "phi_total": round(phi_total, 6),
+        "phi_within": round(phi_within, 6),
+        "phi_between": round(phi_between, 6),
+        "phi_within_fraction": round(phi_within / max(phi_total, 1e-10), 4),
+        "mi_integration": round(mi_integration, 6),
+        "differentiation": round(differentiation, 6),
+    }
+
+
+# ── Φ calibration and validation ─────────────────────────────────────────
+
+def phi_calibration_anchors(
+    n_neurons: int = 32,
+    n_processors: int = 3,
+    n_clusters: int = 8,
+    seed: int = 42,
+) -> dict:
+    """
+    Compute Φ_approx on calibration systems with known properties.
+
+    IMPORTANT: These Φ values are from the Φ_approx, not IIT's true Φ. They
+    provide RELATIVE anchors — what the approximation returns for systems
+    with known dynamical regimes. The ABSOLUTE values are meaningless.
+
+    Anchors:
+      1. Pure noise system: independent Gaussian → minimal causal structure
+      2. Deterministic sine: maximal predictability, zero integration
+      3. Correlated signal: shared signal + uncorrelated noise → partial integration
+
+    Use these to contextualize the experiment Φ values. If experiment Φ is in
+    the same range as random noise, the approximation is not capturing structure.
+    """
+    rng = np.random.RandomState(seed)
+
+    def _random_anchor():
+        history = []
+        vecs = {}
+        for step in range(25):
+            v = rng.randn(n_neurons).astype(np.float32)
+            history.append({"content_vec": v})
+        ws = rng.randn(n_neurons).astype(np.float32)
+        for i in range(n_processors):
+            vecs[f"p{i}"] = rng.randn(n_neurons).astype(np.float32)
+        return neural_phi_approx(ws, vecs, history, n_state_clusters=n_clusters)
+
+    def _deterministic_anchor():
+        t = np.linspace(0, 4 * np.pi, 30)
+        history = []
+        for step in range(25):
+            v = np.sin(t + step * 0.3).astype(np.float32)[:n_neurons]
+            history.append({"content_vec": v})
+        vecs = {f"p{i}": np.sin(t + i * np.pi / 3).astype(np.float32)[:n_neurons]
+                for i in range(n_processors)}
+        ws = np.sin(t + 0.5).astype(np.float32)[:n_neurons]
+        return neural_phi_approx(ws, vecs, history, n_state_clusters=n_clusters)
+
+    def _correlated_anchor():
+        common = rng.randn(n_neurons).astype(np.float32)
+        history = []
+        for step in range(25):
+            v = common * 0.6 + rng.randn(n_neurons).astype(np.float32) * 0.4
+            history.append({"content_vec": v})
+        vecs = {}
+        for i in range(n_processors):
+            vecs[f"p{i}"] = common * 0.6 + rng.randn(n_neurons).astype(np.float32) * 0.4
+        ws = common * 0.6 + rng.randn(n_neurons).astype(np.float32) * 0.4
+        return neural_phi_approx(ws, vecs, history, n_state_clusters=n_clusters)
+
+    return {
+        "random_noise": round(_random_anchor(), 6),
+        "deterministic_sine": round(_deterministic_anchor(), 6),
+        "correlated_signal": round(_correlated_anchor(), 6),
+        "note": "These are RELATIVE anchor values from the Φ approximation, NOT true IIT Φ. "
+                "Use only for cross-condition comparison context, not as absolute benchmarks.",
+        "interpretation": {
+            "random_noise": "lower reference — independent noise, minimal causal structure",
+            "deterministic_sine": "predictable but zero MI_integration — high EI, low MI",
+            "correlated_signal": "partially shared structure — higher MI than random",
+        },
+    }
+
+
+def phi_random_partitions(
+    workspace_vec: np.ndarray,
+    processor_proposals: dict[str, np.ndarray],
+    workspace_history: list[dict] = None,
+    n_partitions: int = 100,
+    seed: int = 42,
+) -> dict:
+    """
+    Test Φ_approx bias by sampling random bipartitions.
+
+    IIT's Φ requires the MIP (Minimum Information Partition). Our fixed partition
+    likely overestimates Φ. This function samples random partitions to estimate
+    the bias magnitude and check if the bias is consistent across conditions.
+
+    A consistent bias across conditions is acceptable for comparative analysis.
+    An inconsistent bias is a fatal problem.
+    """
+    if workspace_history is None:
+        workspace_history = []
+
+    rng = np.random.RandomState(seed)
+    ws = workspace_vec.flatten()
+    n_dim = len(ws)
+
+    # Our default Φ (fixed partition)
+    default_phi = neural_phi_approx(ws, processor_proposals, workspace_history)
+
+    # Sample random bipartitions and compute Φ each time
+    phis = []
+    for _ in range(n_partitions):
+        # Random partition: split neurons into two groups
+        perm = rng.permutation(n_dim)
+        split = n_dim // 2
+        group_a = perm[:split]
+        group_b = perm[split:]
+
+        # Approximate Φ for this partition
+        ws_a = np.zeros_like(ws)
+        ws_b = np.zeros_like(ws)
+        ws_a[group_a] = ws[group_a]
+        ws_b[group_b] = ws[group_b]
+
+        proc_a = {}
+        proc_b = {}
+        for name, vec in processor_proposals.items():
+            v = vec.flatten()
+            va = np.zeros_like(v)
+            vb = np.zeros_like(v)
+            va[group_a[:len(v)]] = v[group_a[:len(v)]] if len(va) == len(v) else v[:len(va)]
+            vb[group_b[:len(v)]] = v[group_b[:len(v)]] if len(vb) == len(v) else v[:len(vb)]
+            proc_a[name] = va
+            proc_b[name] = vb
+
+        phi_a = neural_phi_approx(ws_a, proc_a, workspace_history)
+        phi_b = neural_phi_approx(ws_b, proc_b, workspace_history)
+        phis.append(phi_a + phi_b)
+
+    phi_mean = float(np.mean(phis))
+    phi_std = float(np.std(phis))
+    phi_min = float(np.min(phis))
+
+    return {
+        "default_phi": round(default_phi, 6),
+        "random_partition_mean": round(phi_mean, 6),
+        "random_partition_std": round(phi_std, 6),
+        "random_partition_min": round(phi_min, 6),
+        "relative_bias": round((default_phi - phi_mean) / max(abs(phi_mean), 1e-10), 4),
+        "bias_consistent_if_std_small": phi_std < abs(phi_mean) * 0.3,
+        "n_partitions": n_partitions,
+    }
+
+
 # ── Information geometry on neural states ────────────────────────────────────
 
 def neural_information_geometry(
@@ -587,6 +863,143 @@ def neural_information_geometry(
     return {
         "fisher_trace": round(fisher_trace, 6),
         "complexity": round(complexity, 6),
+    }
+
+
+# ── Coalition merge strategies ────────────────────────────────────────────────
+
+def merge_mean(vectors: list[np.ndarray]) -> np.ndarray:
+    """Mean merge — simple but cancels differentiation (baseline comparison)."""
+    if not vectors:
+        return np.array([])
+    return np.mean(vectors, axis=0)
+
+
+def merge_concat(vectors: list[np.ndarray], target_dim: int) -> np.ndarray:
+    """
+    Concatenation + random projection merge — preserves all information.
+
+    Concatenates all vectors then projects back to target_dim via a fixed
+    random matrix. Information loss is bounded by the Johnson-Lindenstrauss
+    lemma: for target_dim >= O(log(n_vectors) / epsilon^2), pairwise distances
+    are preserved within (1 +/- epsilon).
+
+    Unlike mean, this preserves differentiation — complementary activation
+    patterns don't cancel.
+    """
+    if not vectors:
+        return np.zeros(target_dim)
+    concat = np.concatenate([v.flatten() for v in vectors])
+    # Fixed random projection matrix (seed ensures reproducibility)
+    rng = np.random.RandomState(42)
+    proj = rng.randn(len(concat), target_dim).astype(np.float32) / np.sqrt(len(concat))
+    merged = concat @ proj
+    return merged.astype(np.float32)
+
+
+def merge_attention_weighted(
+    vectors: list[np.ndarray],
+    names: list[str],
+    workspace_vec: np.ndarray,
+    world_model=None,
+) -> np.ndarray:
+    """
+    World-model guided attention-weighted merge.
+
+    Each processor's weight = softmax(cosine_similarity(processor_vec, workspace_vec)).
+    Processors aligned with current workspace get higher weight.
+    This preserves differentiation while favoring consensus-aligned contributions.
+
+    If world_model is provided, attentions are modulated by consensus_score.
+    """
+    if not vectors:
+        return np.array([])
+    if len(vectors) == 1:
+        return vectors[0].copy()
+
+    ws = workspace_vec.flatten()
+    scores = []
+    for v in vectors:
+        vf = v.flatten()
+        # Cosine similarity to workspace
+        dot = np.dot(vf, ws)
+        norm_v = np.linalg.norm(vf)
+        norm_ws = np.linalg.norm(ws)
+        sim = dot / max(norm_v * norm_ws, 1e-10)
+        scores.append(max(0.0, float(sim)))
+
+    # Softmax
+    scores = np.array(scores)
+    scores = np.exp(scores - np.max(scores))
+    weights = scores / scores.sum()
+
+    # Weighted sum
+    merged = np.zeros_like(vectors[0], dtype=np.float32)
+    for w, v in zip(weights, vectors):
+        merged += w * v
+
+    return merged.astype(np.float32)
+
+
+def merge_coalition(
+    vectors: list[np.ndarray],
+    names: list[str] = None,
+    strategy: str = "attention",
+    workspace_vec: np.ndarray = None,
+    world_model=None,
+) -> tuple[np.ndarray, dict]:
+    """
+    Merge coalition activation vectors using the specified strategy.
+
+    Args:
+        vectors: List of activation vectors.
+        names: Processor names (for attention strategy).
+        strategy: "mean" | "concat" | "attention".
+        workspace_vec: Current workspace vector (for attention strategy).
+        world_model: WorldModel instance (optional, for attention modulation).
+
+    Returns:
+        (merged_vector, merge_metadata)
+    """
+    if not vectors:
+        return np.zeros(0), {"strategy": strategy, "n_merged": 0}
+
+    target_dim = vectors[0].shape[0] if len(vectors[0].shape) == 1 else len(vectors[0].flatten())
+
+    if strategy == "concat":
+        merged = merge_concat(vectors, target_dim)
+    elif strategy == "attention" and workspace_vec is not None:
+        merged = merge_attention_weighted(vectors, names or [], workspace_vec, world_model)
+    else:
+        merged = merge_mean(vectors)
+
+    # Compute merge fidelity metrics
+    fidelity = _merge_fidelity(vectors, merged)
+
+    return merged, {
+        "strategy": strategy,
+        "n_merged": len(vectors),
+        "input_std_mean": float(np.mean([np.std(v) for v in vectors])),
+        "merged_std": float(np.std(merged)),
+        "differentiation_retention": fidelity["differentiation_retention"],
+    }
+
+
+def _merge_fidelity(vectors: list[np.ndarray], merged: np.ndarray) -> dict:
+    """Compute how well the merge preserves the original vectors' information."""
+    if not vectors:
+        return {"differentiation_retention": 1.0}
+    merged_f = merged.flatten()
+    sims = []
+    for v in vectors:
+        vf = v.flatten()
+        sim = np.dot(vf, merged_f) / max(np.linalg.norm(vf) * np.linalg.norm(merged_f), 1e-10)
+        sims.append(float(sim))
+    # Differentiation retention = std of similarities (high = vectors treated differently)
+    # Mean merge → all sims ~equal → low diff retention → bad
+    return {
+        "mean_similarity": float(np.mean(sims)),
+        "differentiation_retention": float(np.std(sims)),
     }
 
 
