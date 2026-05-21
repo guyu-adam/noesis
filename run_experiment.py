@@ -107,7 +107,7 @@ analysis = analyze_neural_comparison(results)
 # Processor differentiation validation
 _processor_similarity = {}
 try:
-    from agents.neural_base import _get_neural_processors as _gnp
+    from experiment import _get_neural_processors as _gnp
     _procs = _gnp(cfg.n_neurons, cfg.n_input)
     _names = ["perceptor", "reasoner", "evaluator", "integrator", "predictor"]
     for i, ni in enumerate(_names):
@@ -118,8 +118,8 @@ try:
                 sim = float(np.dot(vi.flatten(), vj.flatten()) /
                            max(np.linalg.norm(vi) * np.linalg.norm(vj), 1e-10))
                 _processor_similarity[f"{ni}_vs_{nj}"] = round(sim, 4)
-except Exception:
-    _processor_similarity = {"error": "similarity_computation_failed"}
+except Exception as e:
+    _processor_similarity = {"error": f"similarity_computation_failed: {e}"}
 
 # Experiment config lock
 import subprocess
