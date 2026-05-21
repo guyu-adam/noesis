@@ -923,9 +923,7 @@ def analyze_neural_comparison(results: dict[str, list[dict]]) -> dict:
     try:
         from neural_iit import phi_calibration_anchors
         analysis["phi_calibration"] = phi_calibration_anchors(
-            n_neurons=64, n_processors=5, n_clusters=30,
-            # Smaller than 512 to be tractable; note in text: calibration is
-            # approximate and uses scaled-down system
+            n_neurons=512, n_processors=5, n_clusters=3,
         )
     except Exception as e:
         analysis["phi_calibration"] = {"error": str(e)}

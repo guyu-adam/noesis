@@ -15,7 +15,7 @@
 \copyrightyear{2026}
 
 \Title{What Coalition Broadcast Reveals About Causal Integration:\\
-Computational Constraints from a GWT--IIT Neural Processor System}
+A Diagnostic Toolkit and Empirical Constraints from a GWT--IIT Neural Processor System}
 
 \Author{Guyu Adam$^{1}$}
 
@@ -32,32 +32,32 @@ $^{1}$ \quad Independent Research; dhuojian@gmail.com}
 
 \abstract{%
 Global Workspace Theory (GWT) and Integrated Information Theory (IIT) offer
-complementary but mechanistically distinct accounts of conscious access.
-GWT posits that information becomes conscious through competitive broadcast
-among specialized processors; IIT proposes that consciousness is proportional
-to the irreducible integrated information $\Phi$ of a system's causal structure.
-Whether GWT-style broadcast can produce high-$\Phi$ states---and whether
-coalition consensus broadcast produces higher $\Phi$ than winner-take-all
-selection---remains an open computational question. Here we implement a minimal
-recurrent neural processor system (five processors, 512 neurons each) with real
-causal structure and compute a tractable $\Phi$ approximation from neural state
-transition probability matrices. Across nine experimental modes (900 total
-observation cycles, GPU-accelerated), we report four computational constraints:
-(1) broadcast is strictly necessary for high $\Phi$---all broadcast modes
-produce $\Phi = 0.63$--$0.86$ versus $0.05$ for no-broadcast (Cohen's
-$d = 7.43$, $p \approx 0$); (2) processor differentiation is a critical
-prerequisite---five structurally identical processors produce significantly
-lower $\Phi$ than five specialized processors ($d = 1.24$, $p \approx 0$);
-(3) a single integrated processor achieves higher $\Phi$ than any
-multi-processor architecture (0.86 vs.\ 0.60--0.83), revealing an
-integration--differentiation tradeoff consistent with the synergy--redundancy
-framework of Luppi et al.\ (2024); and (4) coalition consensus broadcast does
-not outperform competitive selection in the current implementation, which we
-attribute to near-uniform attention weights (cosine similarity $0.960 \pm
-0.003$) causing the coalition merge to collapse toward a simple mean. These
-findings provide empirically grounded constraints for any computational
-framework seeking to unify GWT and IIT, and identify concrete directions for
-future coalition-based architectures.
+complementary but mechanistically distinct accounts of conscious access,
+yet whether GWT-style broadcast architectures can produce the high-$\Phi$
+states that IIT identifies as the hallmark of consciousness remains an open
+computational question. Rather than testing a specific theoretical prediction,
+we construct a \textit{diagnostic testbed}—a five-processor recurrent neural
+network system (512 neurons each, 2560 total) with real causal structure—and
+systematically measure what a tractable $\Phi$ approximation actually captures
+across nine experimental modes (900 observation cycles, GPU-accelerated).
+We find that among multi-processor modes, $\Phi_\text{approx}$ falls in a
+narrow band of 1.022--1.049 regardless of broadcast mechanism. $\Phi$ scales
+approximately linearly with total recurrent neuron count ($\sim$2.2$\times$
+for five processors vs.\ one), and its inter-processor integration component
+($\Phi_\text{between}$) is a near-constant 0.05 across all conditions.
+Processor differentiation provides a small but statistically reliable benefit
+(clustered Cohen's $d = 0.13$, $p < 0.001$). Coalition consensus broadcast,
+after correcting a pairwise agreement mechanism that prevented multi-member
+coalition formation in the initial implementation, successfully forms
+coalitions (effective ensemble size $\approx 2.5$) but confers no $\Phi$
+advantage over single-winner selection. Two implementation issues—an effective
+information accumulation artifact and the coalition formation bug—were
+identified \textit{through} the diagnostic tools developed in this work
+($\Phi$ decomposition, attention weight tracking, per-cycle monitoring).
+The primary contribution is methodological: a transferable diagnostic toolkit
+for computational studies of broadcast-mediated information integration,
+together with empirical constraints on what $\Phi_\text{approx}$ measures in
+recurrent architectures.
 }
 
 \keyword{%
@@ -115,108 +115,89 @@ agents~\cite{multiagent_coordination}. However, these works typically measure
 task performance rather than causal information integration, and the dominant
 debate paradigm conflates broadcast architecture with agent implementation.
 
-\subsection{Collaborative Global Workspace Theory (CGWT)}
+\subsection{A Diagnostic Testbed for Broadcast-Mediated Integration}
 
-We previously described CGWT as a theoretical
-extension of GWT that replaces winner-take-all selection with
-\textit{coalition consensus broadcast}: rather than a single processor winning
-access to the global workspace, a coalition of processors that achieve
-sufficient mutual agreement jointly broadcasts a merged representation. The
-CGWT hypothesis is that coalition broadcast produces higher $\Phi$ than
-single-winner broadcast because the merged representation preserves more of
-the system's causal connections---the coalition's shared information remains
-integrated rather than being discarded by competitive selection.
+Rather than testing a specific theoretical prediction, we construct a
+\textit{diagnostic testbed}---a minimal recurrent neural processor system
+in which broadcast architecture can be systematically varied while measuring
+$\Phi$ from the same underlying causal structure. The testbed implements
+nine broadcast modes (competitive, random, no-broadcast, collaborative,
+hybrid, adaptive, single-processor, single-self-broadcast, and homogeneous
+competitive), each differing only in how information is selected for global
+workspace access. By holding the processor architecture constant and varying
+only the selection mechanism, we isolate the causal contribution of broadcast
+to $\Phi$.
 
-The present work tests this hypothesis computationally. Our approach differs
-from prior GWT--IIT integrations~\cite{iwmt2020, safron2020integrated} and
-adjacent implementations~\cite{godelos} in three ways: (1) we use recurrent
-neural network (RNN) processors with real causal structure rather than LLM
-agents, enabling $\Phi$ to be computed from neural state transition
-probability matrices rather than token-distribution proxies; (2) we compare
-nine experimental modes (six core conditions plus three methodological
-controls, including an adaptive differentiation gate) head-to-head on the
-same stimuli, providing a systematic decomposition of the
-factors contributing to $\Phi$; and (3) we report both confirmatory and
-disconfirmatory results at the level of individual hypotheses, accepting null
-results where the data warrant them.
+Collaborative Global Workspace Theory (CGWT)---which replaces winner-take-all
+selection with coalition consensus broadcast---serves as one of the broadcast
+architectures under test, not as the hypothesis to be confirmed. Prior
+GWT--IIT integrations~\cite{iwmt2020, safron2020integrated} and adjacent
+implementations~\cite{godelos} have proposed coalition-like mechanisms, but
+none have systematically compared coalition against competitive, random, and
+null-broadcast baselines on a shared causal substrate.
 
-\subsection{Hypotheses}
+Our approach differs from prior work in three ways: (1) we use recurrent
+neural network (RNN) processors with real causal structure, enabling
+$\Phi$ to be computed from neural state transition probability matrices
+rather than token-distribution proxies (LLM-based) or correlation patterns
+(fMRI-based); (2) we deploy a diagnostic toolkit---$\Phi$ decomposition
+into within- and between-processor components, attention weight tracking,
+per-cycle $\Phi$ trajectory monitoring, and coalition merge fidelity
+metrics---that enables not just hypothesis testing but \textit{diagnosis of
+why} a given broadcast mechanism does or does not affect $\Phi$; and (3) we
+compare nine modes head-to-head on identical stimuli, providing a
+decomposition of the factors contributing to $\Phi$ in recurrent
+architectures.
 
-We pre-registered seven hypotheses, organized by the dependent variable each
-is most suited to address:
-
-\textbf{Phi-after hypotheses (absolute level):}
-\begin{itemize}
-\item \textbf{H5b.} Broadcast modes will exhibit substantially higher $\Phi$
-than no-broadcast. (Rationale: without broadcast, processors operate in
-isolation, producing near-zero $\Phi$.)
-\item \textbf{H7b.} Structurally differentiated processors will produce higher
-$\Phi$ than structurally homogeneous processors under the same broadcast
-mechanism. (Rationale: GWT's ``specialized processors'' are a prerequisite for
-meaningful competition.)
-\end{itemize}
-
-\textbf{Phi-delta hypotheses (broadcast gain):}
-\begin{itemize}
-\item \textbf{H1--H4.} Coalition consensus modes (collaborative, hybrid) will
-produce larger $\Phi$ increases over baseline than competitive or random
-selection.
-\item \textbf{H5a.} Competitive broadcast will produce larger $\Phi$ increases
-than no-broadcast.
-\item \textbf{H6.} Single-processor self-broadcast will produce equivalent
-$\Phi$ to single-processor without broadcast. (Rationale: broadcast to oneself
-should not change $\Phi$; this control isolates the effect of distributing
-computation across multiple processors.)
-\item \textbf{H7a.} Differentiated processors will produce larger $\Phi$
-increases than homogeneous processors.
-\end{itemize}
+Seven pre-registered hypotheses (H1--H7, detailed in Methods) guided the
+experimental design. We report all results regardless of outcome, accepting
+null results where the data warrant them. The contribution is not the
+confirmation or disconfirmation of any specific hypothesis, but the
+diagnostic framework and the empirical constraints it reveals about what
+$\Phi_\text{approx}$ measures in recurrent neural architectures.
 
 \subsection{Contributions and Positioning}
 
-The present work makes four contributions at the intersection of
-consciousness science, multi-agent AI, and information theory:
+The present work makes four contributions:
 
 \begin{enumerate}
-\item \textbf{Method: Causal $\Phi$ from RNN state transitions.}
-We establish a complete computational pipeline—RNN activation $\to$
+\item \textbf{A diagnostic toolkit for computational $\Phi$ studies.}
+The $\Phi_\text{within}$ / $\Phi_\text{between}$ decomposition, attention
+weight distribution tracking, coalition size monitoring, per-cycle $\Phi$
+trajectory analysis, and merge fidelity metrics constitute a transferable
+toolkit. These tools identified two non-trivial implementation issues during
+development (an effective information accumulation artifact from expanding
+TPM windows and a coalition formation bug from mismatched agreement metrics),
+demonstrating their diagnostic value independently of any specific empirical
+finding.
+
+\item \textbf{A causal $\Phi$ pipeline from RNN state transitions.}
+We establish a complete computational pipeline---RNN activation $\to$
 state clustering $\to$ causal TPM $\to$ effective information /
-mutual information $\to$ composite $\Phi$ approximation—that respects
+mutual information $\to$ composite $\Phi$ approximation---that respects
 the causal structure requirement of IIT while remaining tractable at scale.
-This departs from prior work that computed $\Phi$ proxies from LLM token
-distributions~\cite{multiagent_coordination} or fMRI correlation
-patterns~\cite{luppi2024synergistic}, neither of which carry
-causal state-transition information.
 
-\item \textbf{Paradigm: Computational constraint discovery.}
-Rather than testing whether one theory ``wins'' over another (the
-adversarial-collaboration paradigm of Ferrante et
-al.\ 2025~\cite{ferrante2025adversarial}), we ask: \textit{what constraints
-must any GWT--IIT integration satisfy to be computationally viable?}
-The resulting constraint set—broadcast necessity, differentiation
-prerequisite, distribution bottleneck—defines the boundary conditions
-for unification without requiring one theory to reduce to the other.
+\item \textbf{Empirical constraints on $\Phi_\text{approx}$ in recurrent
+architectures.} Across 900 observation cycles, we find that (a)
+$\Phi_\text{approx}$ is dominated by total recurrent neuron count, not by
+broadcast mechanism; (b) processor differentiation provides a small but
+reliable $\Phi$ benefit (clustered $d = 0.13$); and (c) coalition consensus
+broadcast, even when correctly implemented, confers no $\Phi$ advantage over
+single-winner selection under the current $\Phi$ approximation.
 
-\item \textbf{Diagnostic: $\Phi$ decomposition and coalition merge analysis.}
-The $\Phi_\text{within}$ / $\Phi_\text{between}$ decomposition and
-attention weight tracking provide a diagnostic toolkit for identifying
-\textit{why} a broadcast mechanism succeeds or fails. This shifts the
-analysis of null results from ``not significant'' to ``which precondition
-was violated''—a transferable methodology for any computational
-coordination study.
-
-\item \textbf{Bridge: Operationalizing the MaxCal IIT--FEP connection.}
+\item \textbf{Operationalizing the MaxCal IIT--FEP bridge.}
 We translate the Maximum Caliber bridge of
 Kearney~(2026)~\cite{kearney2026information} into a concrete coalition
 selection objective (Eq.~\ref{eq:maxcal_coalition}), demonstrating how a
-purely mathematical framework can become a design principle for
-multi-agent architectures.
+mathematical framework can become a design principle for multi-agent
+architectures.
 \end{enumerate}
 
 This work does \textit{not} claim that the RNN system is conscious, that
-$\Phi_\text{approx}$ equals true $\Phi$, or that CGWT's coalition
-hypothesis was confirmed. Its contribution is the constraint set and
-the diagnostic methodology—a computational contribution to the
-methodology of theory-testing through precise, falsifiable predictions
+$\Phi_\text{approx}$ equals true $\Phi$, or that any specific broadcast
+architecture is superior. Its contribution is the diagnostic methodology
+and the empirical constraints it reveals---a computational contribution to
+the methodology of theory-testing through precise, falsifiable predictions
 advocated by Ferrante et al.\ (2025) and Phua~(2025)~\cite{phua2025}.
 
 %══════════════════════════════════════════════════════════════════════════════
@@ -430,6 +411,25 @@ acceleration. Each cycle completes in approximately 0.1 seconds. All code,
 data, and experiment configurations (including dependency versions) are
 archived with the manuscript.
 
+\subsection{Pre-Registered Hypotheses}
+
+The experimental design was guided by seven pre-registered hypotheses,
+reported here for transparency. All results are reported regardless of
+outcome. The dependent variable (phi\_after for absolute level; phi\_delta
+for broadcast gain) is declared per hypothesis based on the scientific
+question each addresses.
+
+\textbf{Phi-after hypotheses (absolute level):} H5b---broadcast modes produce
+substantially higher $\Phi$ than no-broadcast. H7b---structurally
+differentiated processors produce higher $\Phi$ than homogeneous processors.
+
+\textbf{Phi-delta hypotheses (broadcast gain):} H1--H4---coalition modes
+(collaborative, hybrid) produce larger $\Phi$ increases than competitive or
+random selection. H5a---competitive broadcast produces larger $\Phi$ increases
+than no-broadcast. H6---single-processor self-broadcast produces equivalent
+$\Phi$ to single-processor without broadcast. H7a---differentiated processors
+produce larger $\Phi$ increases than homogeneous processors.
+
 \subsection{Statistical Analysis}
 
 We report two complementary statistical approaches:
@@ -600,19 +600,52 @@ methodological contribution of this work is therefore not the specific
 empirical findings---which were substantially revised by these corrections---but
 the diagnostic framework that enabled their discovery.
 
+\subsection{Processor Functional Similarity}
+
+A critical auxiliary finding concerns the relationship between structural
+and functional processor differentiation. Pairwise cosine similarity between
+processor activation vectors (pre-stimulus resting state, 512-dimensional)
+averages 0.027 across the 10 processor pairs, confirming that the five
+$W_\text{rec}$ initialization strategies produce structurally distinct
+dynamical regimes. However, the similarity distribution is skewed: 9 of 10
+pairs fall below 0.07 (range: $-$0.069 to 0.052), while the
+reasoner--integrator pair reaches 0.20.
+
+This structural differentiation does not translate into functional
+differentiation when processors process the same stimulus. In collaborative
+mode, the attention-weighted merge produces a mean cosine similarity of 0.92
+between processor outputs and the workspace vector (standard deviation 0.02),
+indicating that despite structurally distinct recurrent weights, the five
+processors converge to highly similar activation patterns when driven by a
+shared stimulus. The effective ensemble size of the coalition merge is
+approximately 2.5 processors (inverse participation ratio), consistent with
+2--3 processors contributing meaningfully while the remainder produce
+redundant representations.
+
+This dissociation between structural and functional differentiation explains
+why coalition formation, even when operating correctly, confers no $\Phi$
+advantage: the processors agree too much for coalition to add information
+beyond what any single processor already provides. The implication for
+multi-agent architectures is that \textit{structural} heterogeneity
+(different model architectures or connectivity patterns) is insufficient to
+guarantee \textit{functional} heterogeneity---the stimulus itself drives
+convergence.
+
 \subsection{Calibration}
 
-A calibration on three reference systems ($n_\text{neurons}=64$,
-$n_\text{processors}=5$, $n_\text{clusters}=5$---corrected from the
-previous over-clustered configuration) provides interpretive bounds:
-random noise yields $\Phi_\text{approx} = 0.847$, deterministic sine
-dynamics 0.923, and correlated signal 0.891. These values are
-comparable to but slightly below the experimental multi-processor $\Phi$
-range (1.02--1.05), consistent with the smaller neuron count in the
-calibration system (64 vs.\ 512).\footnote{Previous calibration used
-$n_\text{clusters}=30 > n_\text{history}=25$, creating sparse TPMs that
-inflated EI. Corrected calibration uses $n_\text{clusters}=5$,
-satisfying the $n_\text{clusters} \leq n_\text{history}/5$ criterion.}
+A calibration on three reference systems matched to the experiment scale
+($n_\text{neurons}=512$, $n_\text{processors}=5$, $n_\text{clusters}=3$,
+$n_\text{history}=10$) provides interpretive bounds: random noise yields
+$\Phi_\text{approx} = 0.738$, deterministic sine dynamics 0.712, and
+correlated signal 0.580. These values are below the experimental
+multi-processor $\Phi$ range (1.02--1.05), consistent with the structured
+recurrent dynamics ($W_\text{rec}$ with spectral radius $< 0.9$) producing
+stronger causal constraints than unstructured or deterministic reference
+systems. The calibration confirms that $\Phi_\text{approx}$ is sensitive to
+genuine causal structure (RNN $>$ noise), but the narrow spread of
+calibration values (0.58--0.74 vs.\ the experimental range of 1.02--1.05)
+indicates that recurrent connectivity is the dominant contributor to the
+metric.
 
 %══════════════════════════════════════════════════════════════════════════════
 % 4. Discussion
@@ -741,13 +774,16 @@ prediction error are preferentially selected.
 
 \begin{enumerate}
 \item \textbf{$\Phi$ approximation validity.} Our $\Phi_\text{approx}$ has
-not been validated against exact $\Phi$ on small tractable systems.
-The finding that $\Phi$ is predominantly determined by neuron count makes
-this validation especially urgent: if exact $\Phi$ on tractable systems also
-scales primarily with system size, the approximation captures a genuine signal;
-if not, the approximation's sensitivity to causal structure may be
-insufficient. Validation on  = 6hmtBc-2$ binary-unit systems remains the
-highest-priority future work.
+not been validated against exact $\Phi$ on small tractable systems. This
+limitation is inherent to IIT itself---exact $\Phi$ is computable only for
+systems with $N \leq 16$ binary units. Our $\Phi_\text{approx}$ uses four
+documented simplifications (Section~2.3), each with a known bias direction.
+If the approximation is valid, we predict that in a tractable binary system
+($N = 10$, $M = 2$--$3$ processors), $\Phi_\text{approx}$ and true $\Phi$
+should exhibit a Spearman rank correlation $\geq 0.8$ across conditions with
+varying causal structure. This validation remains the highest-priority future
+work; until completed, all findings based on $\Phi_\text{approx}$ rank-ordering
+should be interpreted as contingent on this predicted correlation.
 
 \item \textbf{TPM window size and cycle count.} The fixed TPM window
 ( = 10$) and the small number of cycles per stimulus (5) mean that
