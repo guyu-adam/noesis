@@ -112,7 +112,7 @@ debate paradigm conflates broadcast architecture with agent implementation.
 
 \subsection{Collaborative Global Workspace Theory (CGWT)}
 
-We previously proposed CGWT~\cite{placeholder_cgwt_preprint} as a theoretical
+We previously described CGWT as a theoretical
 extension of GWT that replaces winner-take-all selection with
 \textit{coalition consensus broadcast}: rather than a single processor winning
 access to the global workspace, a coalition of processors that achieve
@@ -445,7 +445,10 @@ processors, 30 clusters) provides interpretive context: random noise
 correlated signal (1.543). All calibration values exceed the experimental
 $\Phi$ values, which we attribute to over-clustering artifact ($n_\text{clusters}
 = 30 > n_\text{history} = 25$, causing near-deterministic TPMs that inflate
-EI). This does not affect cross-condition comparisons but represents a known
+EI).\footnote{Due to this artifact, calibration values should be interpreted
+cautiously; the over-clustering inflates EI for all reference systems
+uniformly. See Limitations (Section~4.4) for further discussion.}
+This does not affect cross-condition comparisons but represents a known
 limitation of the calibration configuration.
 
 \subsection{Finding 2: Processor Differentiation Is a Critical Prerequisite}
@@ -800,9 +803,6 @@ Kriegeskorte, N.; Mur, M.; Bandettini, P. Representational similarity analysis--
 
 \bibitem{oizumi2014}
 Oizumi, M.; Albantakis, L.; Tononi, G. From the phenomenology to the mechanisms of consciousness: integrated information theory 3.0. \textit{PLoS Comput. Biol.} \textbf{2014}, \textit{10}, e1003588.
-
-\bibitem{placeholder_cgwt_preprint}
-Adam, G. Collaborative Global Workspace Theory: Coalition Consensus Broadcast in Multi-Agent Systems. Preprint, 2026. \url{https://github.com/guyu-adam/noesis}.
 
 \end{thebibliography}
 
