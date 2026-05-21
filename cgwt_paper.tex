@@ -170,6 +170,54 @@ computation across multiple processors.)
 increases than homogeneous processors.
 \end{itemize}
 
+\subsection{Contributions and Positioning}
+
+The present work makes four contributions at the intersection of
+consciousness science, multi-agent AI, and information theory:
+
+\begin{enumerate}
+\item \textbf{Method: Causal $\Phi$ from RNN state transitions.}
+We establish a complete computational pipeline—RNN activation $\to$
+state clustering $\to$ causal TPM $\to$ effective information /
+mutual information $\to$ composite $\Phi$ approximation—that respects
+the causal structure requirement of IIT while remaining tractable at scale.
+This departs from prior work that computed $\Phi$ proxies from LLM token
+distributions~\cite{multiagent_coordination} or fMRI correlation
+patterns~\cite{luppi2024synergistic}, neither of which carry
+causal state-transition information.
+
+\item \textbf{Paradigm: Computational constraint discovery.}
+Rather than testing whether one theory ``wins'' over another (the
+adversarial-collaboration paradigm of Ferrante et
+al.\ 2025~\cite{ferrante2025adversarial}), we ask: \textit{what constraints
+must any GWT--IIT integration satisfy to be computationally viable?}
+The resulting constraint set—broadcast necessity, differentiation
+prerequisite, distribution bottleneck—defines the boundary conditions
+for unification without requiring one theory to reduce to the other.
+
+\item \textbf{Diagnostic: $\Phi$ decomposition and coalition merge analysis.}
+The $\Phi_\text{within}$ / $\Phi_\text{between}$ decomposition and
+attention weight tracking provide a diagnostic toolkit for identifying
+\textit{why} a broadcast mechanism succeeds or fails. This shifts the
+analysis of null results from ``not significant'' to ``which precondition
+was violated''—a transferable methodology for any computational
+coordination study.
+
+\item \textbf{Bridge: Operationalizing the MaxCal IIT--FEP connection.}
+We translate the Maximum Caliber bridge of
+Kearney~(2026)~\cite{kearney2026information} into a concrete coalition
+selection objective (Eq.~\ref{eq:maxcal_coalition}), demonstrating how a
+purely mathematical framework can become a design principle for
+multi-agent architectures.
+\end{enumerate}
+
+This work does \textit{not} claim that the RNN system is conscious, that
+$\Phi_\text{approx}$ equals true $\Phi$, or that CGWT's coalition
+hypothesis was confirmed. Its contribution is the constraint set and
+the diagnostic methodology—a computational contribution to the
+methodology of theory-testing through precise, falsifiable predictions
+advocated by Ferrante et al.\ (2025) and Phua~(2025)~\cite{phua2025}.
+
 %══════════════════════════════════════════════════════════════════════════════
 % 2. Methods
 %══════════════════════════════════════════════════════════════════════════════
@@ -695,30 +743,108 @@ open-loop manner without a behavioral output or reward signal. Embedding
 the GWT--IIT architecture in a reinforcement learning task would enable
 testing whether $\Phi$ correlates with task performance---a critical
 extension for connecting to the multi-agent AI literature.
+
+\item \textbf{Single architecture validation.} All findings derive from
+one RNN architecture (tanh, spectral radius $< 0.9$). Whether the three
+constraints hold under LSTM, GRU, or Transformer processor dynamics remains
+unexplored. A minimal cross-architecture replication (e.g., one LSTM
+condition replicating the competitive vs.\ homogeneous comparison) would
+substantially strengthen the claims of architecture-independence.
+\end{enumerate}
+
+\subsection{Downstream Impact Pathways}
+
+Beyond the immediate GWT--IIT integration question, the three computational
+constraints identified here have potential downstream implications for
+adjacent fields:
+
+\textbf{Multi-agent AI architecture.} Finding~2 (differentiation prerequisite,
+$d = 1.12$) implies that agent role differentiation in LLM multi-agent
+systems cannot rely on prompt engineering alone—the underlying models must
+be heterogeneous in their representational geometry. Finding~3 (single
+$>$ multi) suggests a diminishing-returns principle for agent count: when
+agent outputs are highly correlated (cosine similarity $> 0.95$), adding
+more agents increases communication cost without increasing information
+quality. Finding~4 implies that coalition consensus should be
+\textit{adaptively gated}—triggered only when agent disagreement exceeds
+a threshold—rather than unconditionally applied.
+
+\textbf{Neuromorphic computing.} The three constraints translate naturally
+into neuromorphic hardware design principles: (1) a high-bandwidth global
+communication bus (broadcast necessity), (2) heterogeneous core clusters
+with distinct temporal dynamics (differentiation prerequisite), and
+(3) core-to-core communication bandwidth as the bottleneck for the chip's
+effective information capacity (distribution bottleneck). Recent
+neuromorphic architectures such as Intel's Loihi~2 and IBM's NorthPole
+already explore heterogeneous cores with asynchronous communication,
+providing a potential hardware substrate for testing these constraints at
+the silicon level.
+
+\textbf{Clinical consciousness metrics.} The $\Phi_\text{approx}$
+pipeline—while explicitly not validated as a clinical instrument—sketches a
+direction toward quantitative, theory-grounded screening tools for
+consciousness level assessment. If future work (a) validates
+$\Phi_\text{approx}$ against exact $\Phi$ on tractable systems and (b)
+adapts the TPM construction pipeline to EEG or iEEG time series, the
+broadcast-necessity constraint ($d = 7.23$) provides a testable
+prediction for clinical data: conditions associated with impaired
+consciousness should exhibit reduced information integration relative to
+the awake state, and the deficit should be most pronounced in the
+broadcast (global workspace) rather than local processor component.
 \end{enumerate}
 
 \subsection{Future Work}
 
-The most promising direction is \textbf{adaptive coalition formation}: rather
-than always forming a coalition, the system should measure the differentiation
-of processor outputs and deploy coalition merge only when processors genuinely
-disagree. The attention weight standard deviation provides a natural metric
-for this gating decision.
+\textbf{1. Adaptive coalition with differentiation gate.} The most immediate
+next step is implementing a \textit{differentiation gate}—a threshold on
+processor activation diversity that controls whether coalition mode is
+deployed. The attention weight standard deviation already provides a
+natural metric: if $\sigma(\alpha) < \tau$ (processor weights are
+near-uniform), skip coalition and fall back to competitive selection.
+This requires approximately 50 lines of code in the existing codebase and
+would directly test whether adaptive gating restores coalition's
+advantage under conditions of genuine processor disagreement. The
+pseudocode is:
 
-Second, \textbf{more aggressive processor specialization}---including
-different input embeddings per processor, heterogeneous timescales, and
-non-tanh activation functions---should be explored to determine whether
-sufficient differentiation can be achieved for coalition consensus to
-outperform competitive selection.
+\begin{quote}
+\texttt{if std(attention\_weights) > differentiation\_threshold:}\\
+\quad\texttt{coalition\_broadcast()  \# processors genuinely disagree}\\
+\texttt{else:}\\
+\quad\texttt{competitive\_broadcast()  \# near-consensus, coalition adds noise}
+\end{quote}
 
-Third, the \textbf{MaxCal coalitions} direction formalizes coalition selection
-as minimization of collective variational free energy, directly
-operationalizing the IIT--FEP bridge identified by
-Kearney (2026)~\cite{kearney2026information}.
+\textbf{2. Processor specialization beyond connectivity.} More aggressive
+differentiation strategies—different input embeddings per processor,
+heterogeneous timescales ($T \in \{15, 20, 25, 30, 35\}$), and non-tanh
+activation functions (ReLU, sigmoid, softplus)—should be explored to
+create the genuine representational diversity that coalition consensus
+requires.
 
-Fourth, scaling to \textbf{larger systems} (8--16 processors, 1024+ neurons
-each) on datacenter GPUs may reveal emergent $\Phi$ effects not visible at
-current scale.
+\textbf{3. MaxCal coalition optimization.} Implementing the full coalition
+selection objective (Eq.~\ref{eq:maxcal_coalition})—including the
+prediction error penalty term that is currently absent—would test
+whether optimization-based coalition selection outperforms the current
+scoring-based approach.
+
+\textbf{4. Cross-architecture replication.} The three constraints should
+be tested on at least one alternative processor architecture (LSTM
+or GRU) and one alternative agent type (LLM-based, using the existing
+noesis-llm branch) to determine whether they are architecture-specific
+or general.
+
+\textbf{5. Scaling to larger systems.} Scaling to 8--16 processors with
+1024+ neurons each on datacenter GPUs may reveal emergent $\Phi$ effects
+not visible at current scale, and would test whether the distribution
+bottleneck (Finding~3) scales with processor count.
+
+\textbf{6. Neuromorphic and clinical translation.} Longer-term, the
+three constraints provide testable predictions for neuromorphic hardware
+prototypes (Loihi~2, NorthPole) and, pending $\Phi_\text{approx}$
+validation against exact $\Phi$, for clinical EEG/iEEG data.
+Broadcast necessity ($d = 7.23$) predicts that conditions associated
+with impaired consciousness should exhibit a disproportionate deficit
+in the global workspace component of $\Phi$ relative to local
+processor components.
 
 %══════════════════════════════════════════════════════════════════════════════
 % 5. Conclusions
@@ -749,7 +875,12 @@ broadcast-based conscious access (GWT) with causal integration ($\Phi$, IIT)
 must solve three problems simultaneously: how to broadcast without destroying
 differentiation, how to specialize processors beyond structural initialization,
 and how to form coalitions adaptively---only when consensus would be
-non-trivial. The current work provides empirically grounded starting
+non-trivial. Beyond consciousness science, these constraints carry actionable
+implications for multi-agent AI architecture design (heterogeneous agents,
+differentiation-gated coalition), neuromorphic hardware (global bus,
+heterogeneous cores, bandwidth as $\Phi$ bottleneck), and---contingent
+on $\Phi_\text{approx}$ validation---clinical consciousness metrics.
+The current work provides empirically grounded starting
 conditions for each of these problems.
 
 \vspace{6pt}
