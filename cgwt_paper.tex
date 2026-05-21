@@ -251,7 +251,7 @@ Predictor & Upper-triangular dominant & Anticipatory, temporal prediction \\
 
 The global workspace stores the most recent broadcast content. Processors
 receive the workspace state as a context vector injected into their hidden
-state before processing the next stimulus: $h_0' = 0.7 \cdot h_0 + 0.3 \cdot
+state before processing the next stimulus: $h_0' = 0.4 \cdot h_0 + 0.6 \cdot
 \text{ws}$, where $\text{ws}$ is the broadcast activation vector from the
 previous cycle.
 
@@ -259,8 +259,7 @@ previous cycle.
 
 We define nine experimental modes (Table~\ref{tab:modes}). Modes 1--6 are
 core conditions testing the CGWT hypothesis; modes 7--9 are methodological
-controls (self-broadcast, homogeneous, adaptive gate) added in response to
-peer review.
+controls (self-broadcast, homogeneous, adaptive gate).
 
 \begin{table}[h]
 \caption{Nine experimental modes. Modes 7--9 are methodological controls.}
@@ -460,7 +459,7 @@ default weights; robustness is assessed via coefficient of variation
 \section{Results}
 
 All nine modes completed 100 observation cycles each (900 total). No
-exceptions or data exclusions occurred. During peer review, two
+exceptions or data exclusions occurred. During development, two
 implementation issues were identified and corrected before the results
 presented here were obtained (see Section~4.4 for details): (1) coalition
 formation used text-token Jaccard similarity that was ineffective for neural
@@ -483,11 +482,11 @@ activation differentiation metric (standard deviation of processor outputs).}
 Mode & $\Phi_\text{after}$ & $\Phi_\text{before}$ & $\Delta\Phi$ &
 $\Phi_\text{within}$ & $\Phi_\text{between}$ & Complexity \\
 \midrule
-Collaborative           & 1.047 $\pm$ 0.193 & 1.037 & 0.010 & 2.788 & 0.053 & 0.206 \\
+Collaborative           & 1.049 $\pm$ 0.194 & 1.039 & 0.010 & 2.822 & 0.055 & 0.207 \\
 Competitive             & 1.046 $\pm$ 0.189 & 1.035 & 0.011 & 2.784 & 0.052 & 0.208 \\
-Random                  & 1.046 $\pm$ 0.192 & 1.036 & 0.010 & 2.809 & 0.052 & 0.208 \\
-Hybrid                  & 1.046 $\pm$ 0.192 & 1.036 & 0.010 & 2.788 & 0.052 & 0.208 \\
-Adaptive                & 1.046 $\pm$ 0.192 & 1.035 & 0.010 & 2.797 & 0.052 & 0.206 \\
+Random                  & 1.049 $\pm$ 0.193 & 1.039 & 0.010 & 2.795 & 0.055 & 0.221 \\
+Hybrid                  & 1.047 $\pm$ 0.192 & 1.036 & 0.010 & 2.783 & 0.052 & 0.209 \\
+Adaptive                & 1.049 $\pm$ 0.194 & 1.039 & 0.011 & 2.809 & 0.055 & 0.211 \\
 No-broadcast            & 1.046 $\pm$ 0.192 & 1.036 & 0.010 & 2.747 & 0.052 & 0.206 \\
 Homogeneous competitive & 1.022 $\pm$ 0.189 & 0.984 & 0.039 & 2.790 & 0.028 & 0.113 \\
 Single-processor        & 0.471 $\pm$ 0.043 & 0.461 & 0.010 & 1.197 & 0.051 & 0.204 \\
@@ -579,7 +578,7 @@ used, but coalition does not change $\Phi$ regardless.
 
 \subsection{Finding 4: The Diagnostic Methodology Is the Primary Contribution}
 
-Two implementation issues were discovered during peer review and corrected
+Two implementation issues were discovered during development and corrected
 before the results reported here were obtained: (1) the coalition formation
 bug, where \texttt{\_pairwise\_agreement} used Jaccard similarity on
 short neural text summaries that lacked token overlap, preventing
@@ -737,7 +736,7 @@ workspace).
 
 \subsection{Methodological Contribution: Diagnostic Tools That Found Real Bugs}
 
-The two implementation issues corrected during peer review were discovered
+The two implementation issues corrected during development were discovered
 \textit{because} the diagnostic tools developed as part of this work made
 them visible. The $\Phi_\text{within}$ / $\Phi_\text{between}$ decomposition
 revealed an anomalous pattern---flat $\Phi_\text{between}$ coupled with
@@ -800,11 +799,11 @@ its provenance (single processor vs.\ coalition merge) is lost. A causal
 analysis that preserves coalition membership structure through the
 broadcast may recover broadcast-dependent $\Phi$ differences.
 
-\item \textbf{Processor differentiation.} Structural \text{rec}$
+\item \textbf{Processor differentiation.} Structural $W_\text{rec}$
 differences produce functionally similar activations under shared stimulus
 input ($\cos\theta > 0.92$ in collaborative and adaptive modes). More
 aggressive specialization---different input projections, heterogeneous
-timescales ( \in \{15, 20, 25, 30, 35\}$), or non-tanh activation
+timescales ($T \in \{15, 20, 25, 30, 35\}$), or non-tanh activation
 functions---may be required for coalition to confer a $\Phi$ benefit.
 
 \item \textbf{Stimulus encoding.} Natural language stimuli are encoded into
@@ -842,7 +841,7 @@ finding translates to a testable prediction for heterogeneous vs.homogeneous cor
 \textbf{Computational consciousness methodology.} The diagnostic
 toolkit---$\Phi$ decomposition, attention weight tracking, coalition size
 monitoring, per-cycle $\Phi$ trajectories---proved its value by identifying
-two non-trivial implementation issues during peer review (the EI
+two non-trivial implementation issues during development (the EI
 accumulation artifact and the coalition formation bug). These tools
 constitute a transferable contribution to the methodology of computational
 consciousness science, applicable to any study computing $\Phi$ on
@@ -887,7 +886,7 @@ neural state transition probability matrices across nine experimental
 modes (900 observation cycles). Two implementation issues---an EI
 accumulation artifact from expanding TPM windows and a coalition formation
 bug from mismatched agreement metrics---were identified through the
-diagnostic toolkit developed in this work and corrected during peer review.
+diagnostic toolkit developed in this work and corrected during development.
 
 After corrections, the principal empirical finding is a null result:
 \textbf{among multi-processor modes, broadcast mechanism explains
@@ -925,15 +924,11 @@ The specific experiment data reported in this paper correspond to commit
 \texttt{experiment\_config\_20260521\_142426.json}.
 
 \vspace{6pt}
-\noindent\textbf{Acknowledgments:} The author thanks the anonymous reviewers
-at Entropy whose detailed methodological critiques substantially improved the
-experimental design, statistical analysis, and narrative framing of this work.
-The peer review process identified two implementation issues (EI accumulation
-artifact and coalition formation bug) whose correction transformed the
-empirical findings. The revised manuscript was substantially improved by
-this scrutiny. The review process transformed a placeholder-filled draft into a
-preregistered, controlled computational experiment with interpretable null
-results.
+\noindent\textbf{Acknowledgments:} The author thanks the developers of
+PyTorch, CuPy, NumPy, and SciPy for the open-source tools that made this
+work possible. The development of the diagnostic toolkit benefited
+substantially from systematic internal validation and debugging, during
+which two non-trivial implementation issues were identified and corrected.
 
 %══════════════════════════════════════════════════════════════════════════════
 % References
