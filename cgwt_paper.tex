@@ -460,10 +460,14 @@ default weights; robustness is assessed via coefficient of variation
 \section{Results}
 
 All nine modes completed 100 observation cycles each (900 total). No
-exceptions or data exclusions occurred. Full per-cycle data are available in
-the supplementary JSONL files.
-
-\subsection{Finding 1: Broadcast Is Strictly Necessary for High $\Phi$}
+exceptions or data exclusions occurred. During peer review, two
+implementation issues were identified and corrected before the results
+presented here were obtained (see Section~4.4 for details): (1) coalition
+formation used text-token Jaccard similarity that was ineffective for neural
+activation summaries, and (2) effective information accumulated linearly with
+cycle count due to expanding TPM history. Both issues are fully resolved in
+the current data.
+Full per-cycle data are available in the supplementary JSONL files.
 
 \begin{table}[h]
 \caption{Per-mode $\Phi$ statistics (mean $\pm$ SD over 100 cycles). $\Phi_\text{within}$
@@ -479,138 +483,136 @@ activation differentiation metric (standard deviation of processor outputs).}
 Mode & $\Phi_\text{after}$ & $\Phi_\text{before}$ & $\Delta\Phi$ &
 $\Phi_\text{within}$ & $\Phi_\text{between}$ & Complexity \\
 \midrule
-Single-processor        & 0.860 $\pm$ 0.137 & 0.845 & 0.014 & 2.277 & 0.051 & 0.204 \\
-Single self-broadcast   & 0.853 $\pm$ 0.135 & 0.839 & 0.014 & 2.277 & 0.051 & 0.204 \\
-\textbf{Competitive}    & \textbf{0.825} $\pm$ 0.151 & 0.817 & 0.008 & 2.456 & 0.052 & 0.208 \\
-Hybrid                  & 0.800 $\pm$ 0.149 & 0.792 & 0.007 & 2.400 & 0.052 & 0.207 \\
-Collaborative           & 0.785 $\pm$ 0.161 & 0.778 & 0.006 & 2.369 & 0.053 & 0.208 \\
-Adaptive                & 0.766 $\pm$ 0.164 & 0.761 & 0.005 & 2.364 & 0.055 & 0.206 \\
-Homogeneous competitive & 0.632 $\pm$ 0.169 & 0.598 & 0.034 & 2.253 & 0.028 & 0.113 \\
-Random                  & 0.605 $\pm$ 0.163 & 0.600 & 0.005 & 2.159 & 0.053 & 0.212 \\
-\textbf{No-broadcast}   & \textbf{0.051} $\pm$ 0.012 & 0.051 & 0.000 & 0.000 & 0.051 & 0.206 \\
+Collaborative           & 1.047 $\pm$ 0.193 & 1.037 & 0.010 & 2.788 & 0.053 & 0.206 \\
+Competitive             & 1.046 $\pm$ 0.189 & 1.035 & 0.011 & 2.784 & 0.052 & 0.208 \\
+Random                  & 1.046 $\pm$ 0.192 & 1.036 & 0.010 & 2.809 & 0.052 & 0.208 \\
+Hybrid                  & 1.046 $\pm$ 0.192 & 1.036 & 0.010 & 2.788 & 0.052 & 0.208 \\
+Adaptive                & 1.046 $\pm$ 0.192 & 1.035 & 0.010 & 2.797 & 0.052 & 0.206 \\
+No-broadcast            & 1.046 $\pm$ 0.192 & 1.036 & 0.010 & 2.747 & 0.052 & 0.206 \\
+Homogeneous competitive & 1.022 $\pm$ 0.189 & 0.984 & 0.039 & 2.790 & 0.028 & 0.113 \\
+Single-processor        & 0.471 $\pm$ 0.043 & 0.461 & 0.010 & 1.197 & 0.051 & 0.204 \\
+Single self-broadcast   & 0.471 $\pm$ 0.043 & 0.461 & 0.010 & 1.197 & 0.051 & 0.204 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:results} presents per-mode $\Phi$ statistics. The most striking
-result is the categorical divide between broadcast and no-broadcast modes:
-all broadcast modes produce $\Phi_\text{after}$ in the range 0.60--0.86,
-while no-broadcast yields $\Phi_\text{after} = 0.051$. A Mann--Whitney $U$
-test comparing competitive versus no-broadcast on $\Phi_\text{after}$ (H5b)
-yields $U = 9986$, $p \approx 0$, Cohen's $d = 7.43$---an effect of
-extraordinary magnitude. The required sample size for 80\% power is
-effectively zero because the effect is so large.
+\subsection{Finding 1: $\Phi_\text{approx}$ Is Dominated by Processor Count,
+Not by Broadcast Architecture}
 
-The ANCOVA confirms a significant effect of mode on $\Phi_\text{after}$
-after controlling for $\Phi_\text{before}$ ($F(8, 890) = 21.12$, $p \approx
-0$, $\eta^2 = 0.17$). Mode explains 17\% of the variance in $\Phi_\text{after}$
-beyond the baseline.
+Table~\ref{tab:results} reveals a pattern fundamentally different from our
+pre-registered expectations. All seven multi-processor modes (competitive,
+random, no-broadcast, collaborative, hybrid, adaptive, and homogeneous
+competitive) produce nearly identical $\Phi_\text{after}$ values in the
+range 1.022--1.047. The broadcast mechanism---whether competitive, random,
+coalition-based, or absent entirely---has negligible effect on the resulting
+$\Phi$. A Mann--Whitney $U$ test comparing competitive versus no-broadcast
+(H5) on $\Phi_\text{after}$ yields $d = 0.003$, $p = 0.48$---no significant
+difference.
 
-A Fisher-type calibration on three reference systems (64 neurons, 5
-processors, 30 clusters) provides interpretive context: random noise
-($\Phi_\text{approx} = 1.614$), deterministic sine dynamics (1.550), and
-correlated signal (1.543). All calibration values exceed the experimental
-$\Phi$ values, which we attribute to over-clustering artifact ($n_\text{clusters}
-= 30 > n_\text{history} = 25$, causing near-deterministic TPMs that inflate
-EI).\footnote{Due to this artifact, calibration values should be interpreted
-cautiously; the over-clustering inflates EI for all reference systems
-uniformly. See Limitations (Section~4.4) for further discussion.}
-This does not affect cross-condition comparisons but represents a known
-limitation of the calibration configuration.
+The ANCOVA on $\Phi_\text{after}$ with $\Phi_\text{before}$ as covariate
+yields $F(8, 890) = 3257$, $p \approx 0$, but the effect is driven entirely
+by two conditions: the single-processor modes ($\Phi_\text{adjusted} \approx
+0.95$) and the no-broadcast mode's anomalous baseline. All multi-processor
+modes have adjusted means within 0.02 of each other (1.064--1.083). Mode
+does not meaningfully differentiate $\Phi$ among multi-processor architectures.
 
-\subsection{Finding 2: Processor Differentiation Is a Critical Prerequisite}
+A clustered analysis aggregating the 5 serial cycles per stimulus into
+20 independent stimulus-level means per mode corroborates this: competitive
+versus no-broadcast yields $d = 0.003$, $p = 0.44$ (Mann--Whitney $U$ on
+per-stimulus means).
 
-Competitive selection among five structurally differentiated processors
-produces $\Phi_\text{after} = 0.825 \pm 0.151$, while the same mechanism
-applied to five structurally identical Integrator RNNs (homogeneous
-competitive mode) yields only $0.632 \pm 0.169$ (H7b: $U = 8303$,
-$p \approx 0$, Cohen's $d = 1.24$). This $d = 1.24$ effect provides causal
-computational evidence that GWT's ``specialized processors'' architecture
-is not merely a convenience---it is a prerequisite for the emergence of
-high-$\Phi$ states in multi-processor systems.
+The $\Phi$ decomposition explains why. $\Phi_\text{within}$ (the effective
+information from processor-internal TPMs) is 2.75--2.81 for all multi-processor
+modes---including no-broadcast, which now records processor states in
+workspace history for comparable TPM construction. $\Phi_\text{between}$
+(the MI integration component) is a near-constant 0.051--0.053 across all
+modes. $\Phi_\text{approx}$ is dominated by the number of recurrent neurons
+contributing to the TPM (5 $\times$ 512 = 2560 for multi-processor modes,
+1 $\times$ 512 = 512 for single-processor), not by the broadcast mechanism.
 
-This finding is robust: the homogeneous condition's $\Phi$ is lower despite
-having a larger $\Delta\Phi$ (0.035 vs.\ 0.008 for competitive). The
-homogeneous processors start from a lower baseline (0.619) and gain more
-from broadcast, but never catch up to the differentiated processors' absolute
-level. This illustrates why phi\_after (not phi\_delta) is the appropriate
-dependent variable for this hypothesis.
+\subsection{Finding 2: Processor Differentiation Modestly but Robustly
+Increases $\Phi$}
 
-\subsection{Finding 3: Multi-Processor Architecture Introduces an Information
-Bottleneck}
+The one consistent difference among multi-processor modes is between
+differentiated and homogeneous processors. Competitive selection with
+five structurally differentiated processors yields $\Phi_\text{after} =
+1.046 \pm 0.189$, while the same mechanism with five identical Integrator
+RNNs yields $1.022 \pm 0.189$ (H7: clustered Mann--Whitney $U$ on
+per-stimulus means, $d = 0.13$, $p < 0.001$).
 
-The single-processor mode achieves the highest $\Phi_\text{after}$ of any
-condition (0.860), exceeding even competitive multi-processor broadcast
-(0.825). This counterintuitive result---``one brain is better than five
-brains in a meeting''---is reproduced across the self-broadcast control:
-single self-broadcast (0.853) is statistically indistinguishable from
-single-processor without broadcast (0.860; H6: $p = 0.544$, $d = 0.007$).
-Broadcast per se does not reduce $\Phi$; distributing computation across
-multiple processors and then re-integrating through communication does.
+This is the only hypothesis that survives correction across the pairwise
+comparisons: processor differentiation provides a small but statistically
+reliable $\Phi$ benefit. The homogeneous condition's lower $\Phi$ is
+accompanied by a sharply reduced complexity metric (0.113 vs.\ 0.206--0.208),
+providing convergent evidence that structural diversity among processors
+matters for the system's information-theoretic properties. However, the
+effect size is modest ($d = 0.13$), suggesting that differentiation is a
+real but minor contributor relative to the dominant effect of total neuron
+count.
 
-The $\Phi$ decomposition clarifies the mechanism.
-$\Phi_\text{within}$---the effective information from each processor's
-$W_\text{rec}$ recurrence---is 2.2--2.5 across all broadcast modes, whereas
-$\Phi_\text{between}$---the MI integration component sensitive to broadcast---is
-only 0.05--0.06. Crucially, $\Phi_\text{between}$ for no-broadcast (0.052)
-is identical to that for broadcast modes (0.051--0.058), confirming that
-the current $\Phi_\text{approx}$ implementation's MI integration component
-does not meaningfully differentiate between broadcast and no-broadcast
-conditions. $\Phi_\text{within}$ drops to zero in no-broadcast because there
-is no broadcast history to build TPMs from, but the MI component remains
-unchanged---the approximation's sensitivity to broadcast architecture is
-carried entirely by the EI component.
+\subsection{Finding 3: Coalition Formation Is Achieved but Confers No
+$\Phi$ Advantage}
 
-\subsection{Finding 4: CGWT's Core Prediction Is Not Supported, but the Null
-Result Has a Clear Mechanistic Explanation}
+After correcting the pairwise agreement mechanism to use neural cosine
+similarity rather than text-token Jaccard, coalition modes now form genuine
+multi-member coalitions. In collaborative mode, the attention weight standard
+deviation increased from 0.0015 to 0.016, with an effective ensemble size
+of approximately 2.5 processors (inverse participation ratio of 1/0.4),
+indicating that 2--3 of the 5 processors now contribute meaningfully to the
+merged representation. The merge differentiation retention score rose from
+0.009 to 0.035, confirming that the merge now preserves more of the
+individual processors' distinct contributions.
 
-None of the phi\_delta-based hypotheses comparing coalition modes to
-competitive selection reach significance (H1--H4: all $p > 0.35$, all
-$|d| < 0.05$). Collaborative coalition consensus does not produce larger
-$\Phi$ increases than competitive winner-take-all selection in the current
-implementation.
+However, this genuine coalition formation does not translate into higher
+$\Phi$. Collaborative ($\Phi = 1.047$) and competitive ($\Phi = 1.046$)
+are statistically indistinguishable (H1: $d = -0.01$, $p = 0.42$). Coalition
+consensus broadcast, even when operating correctly, does not produce higher
+causal integration than single-winner selection in the current system.
 
-However, the attention weight analysis reveals why.
-In collaborative mode, the mean cosine similarity between processor
-activations and the workspace vector is $0.960 \pm 0.002$; in hybrid mode,
-it reaches $1.000 \pm 0.000$; in adaptive mode, $0.979 \pm 0.001$. With five processors producing nearly identical
-activation directions in the 512-dimensional space, the softmax attention
-weights collapse to a near-uniform distribution ($\approx [0.2, 0.2, 0.2, 0.2,
-0.2]$), and the attention-weighted merge degenerates into a simple arithmetic
-mean. The merge differentiation retention score---measuring how differently
-the merge strategy treats individual processors---is only 0.008 for
-collaborative mode (on a scale where 0 = all processors treated identically).
+The adaptive mode tells a consistent story. With $\sigma(\alpha) = 0.022$
+in the fixed version (up from the artifactually low 0.0007), the
+differentiation gate triggers coalition in a subset of cycles where
+processor disagreement exceeds the threshold. Yet the resulting
+$\Phi_\text{after}$ (1.046) remains identical to all other multi-processor
+modes. Adaptive gating correctly modulates \textit{whether} coalition is
+used, but coalition does not change $\Phi$ regardless.
 
-This finding does not falsify the CGWT hypothesis. It reveals that the
-hypothesis's prerequisite condition---sufficiently differentiated processor
-outputs for coalition formation to be meaningful---is not satisfied by the
-current processor specialization strategy.
+\subsection{Finding 4: The Diagnostic Methodology Is the Primary Contribution}
 
-\textbf{Adaptive gate validation.} The adaptive mode (mode~9) implements a
-\textit{differentiation gate}: if the attention weight standard deviation
-$\sigma(\alpha)$ falls below a threshold ($\tau = 0.02$), coalition is
-skipped and competitive selection is used instead. Across all 100 adaptive
-cycles, $\sigma(\alpha) = 0.0007 \ll 0.02$, resulting in 100\% competitive
-fallback. The adaptive mode's $\Phi_\text{after}$ (0.766) tracks
-competitive (0.830) rather than collaborative (0.785), confirming that the
-gate correctly identifies insufficient differentiation. This provides a
-proof-of-concept for adaptive coalition: the mechanism works as designed;
-what is needed is processor differentiation sufficient to trigger it.
+Two implementation issues were discovered during peer review and corrected
+before the results reported here were obtained: (1) the coalition formation
+bug, where \texttt{\_pairwise\_agreement} used Jaccard similarity on
+short neural text summaries that lacked token overlap, preventing
+multi-member coalitions from ever forming; and (2) the EI accumulation
+artifact, where effective information was computed on expanding TPM history
+windows, causing $\Phi$ to grow linearly with cycle count and creating a
+circular broadcast-vs-no-broadcast comparison (no-broadcast had zero history
+by construction, yielding $\Phi_\text{within} = 0$).
 
-\textbf{Processor structural differentiation.} Pairwise cosine similarity
-between processor activation patterns (pre-stimulus, resting state) averages
-0.037 across the 10 processor pairs, confirming that the five $W_\text{rec}$
-initialization strategies do produce structurally distinct dynamical regimes.
-However, when processing the same stimulus, these structurally distinct
-processors converge to functionally similar outputs---a dissociation between
-\textit{structural} and \textit{functional} differentiation that constrains
-future processor specialization design. When all processors produce highly
-similar representations of the same stimulus (despite structurally different
-$W_\text{rec}$ matrices), coalition selection offers no advantage over
-competitive selection. The ``consensus paradox'' is not that consensus is
-detrimental, but that unwarranted consensus (processors agreeing because they
-see the same thing) precludes the very differentiation that makes integration
-meaningful.
+These issues were identified \textit{because} the diagnostic tools developed
+in this work---$\Phi$ decomposition, per-cycle tracking, and attention
+weight monitoring---made them visible. The $\Phi_\text{within}$ /
+$\Phi_\text{between}$ decomposition revealed the accumulation artifact (a
+flat $\Phi_\text{between}$ coupled with a linearly growing
+$\Phi_\text{within}$). Per-cycle coalition size tracking revealed that
+92\% of ``collaborative'' cycles had a coalition of size 1. The
+methodological contribution of this work is therefore not the specific
+empirical findings---which were substantially revised by these corrections---but
+the diagnostic framework that enabled their discovery.
+
+\subsection{Calibration}
+
+A calibration on three reference systems ($n_\text{neurons}=64$,
+$n_\text{processors}=5$, $n_\text{clusters}=5$---corrected from the
+previous over-clustered configuration) provides interpretive bounds:
+random noise yields $\Phi_\text{approx} = 0.847$, deterministic sine
+dynamics 0.923, and correlated signal 0.891. These values are
+comparable to but slightly below the experimental multi-processor $\Phi$
+range (1.02--1.05), consistent with the smaller neuron count in the
+calibration system (64 vs.\ 512).\footnote{Previous calibration used
+$n_\text{clusters}=30 > n_\text{history}=25$, creating sparse TPMs that
+inflated EI. Corrected calibration uses $n_\text{clusters}=5$,
+satisfying the $n_\text{clusters} \leq n_\text{history}/5$ criterion.}
 
 %══════════════════════════════════════════════════════════════════════════════
 % 4. Discussion
@@ -618,316 +620,282 @@ meaningful.
 
 \section{Discussion}
 
-\subsection{Computational Constraints on GWT--IIT Integration}
+\subsection{The Dominance of Neuron Count over Broadcast Architecture}
 
-Our results establish three robust computational constraints for any framework
-seeking to unify GWT and IIT:
+The most important empirical result is a null result: among multi-processor
+modes, broadcast mechanism explains essentially none of the variance in
+$\Phi_\text{approx}$. Whether processors compete (competitive), are chosen
+at random (random), form coalitions (collaborative, hybrid), adaptively
+gate themselves (adaptive), or do not broadcast at all (no-broadcast),
+the resulting $\Phi$ is the same within a band of approximately 0.02.
+The ANCOVA's large $F$-statistic is driven by the single-processor condition
+alone; among the seven multi-processor modes, adjusted means are nearly
+identical.
 
-\begin{enumerate}
-\item \textbf{Broadcast is necessary but not sufficient.} The 12--17-fold
-increase in $\Phi$ from no-broadcast to broadcast conditions ($d = 7.43$)
-confirms GWT's core prediction that global workspace access is a prerequisite
-for high-$\Phi$ states. However, broadcast alone explains only a small
-fraction of the variance in $\Phi$ across modes ($\eta^2 = 0.17$ in ANCOVA),
-consistent with the observation that the recurrent structure of individual
-processors ($W_\text{rec}$) dominates the causal architecture.
+This finding has a straightforward interpretation: $\Phi_\text{approx}$
+as implemented here is dominated by the number of recurrent neurons
+contributing to the state transition probability matrix. Five processors
+with 512 neurons each produce approximately twice the $\Phi$ of one such
+processor (1.05 vs.\ 0.47), consistent with the factor of five in neuron
+count. The recurrent weights $W_\text{rec}$ of individual processors
+generate the causal structure that EI measures; adding more processors
+adds more causal structure, nearly additively, regardless of how they
+communicate.
 
-\item \textbf{Specialization is causal, not decorative.} The $d = 1.24$
-gap between differentiated and homogeneous competitive modes provides causal
-evidence that processor differentiation is a structural requirement for
-high-$\Phi$ multi-processor states. This has direct implications for
-multi-agent AI architectures: diversity of agent capabilities is not merely
-helpful but causally necessary for information integration.
+This is \textit{not} a failure of the experimental design. It is a finding
+about the nature of $\Phi$ in feedforward-recurrent architectures: the
+effective information arises primarily from within-processor recurrence,
+and inter-processor communication contributes negligibly at the level of
+the current $\Phi$ approximation. The $\Phi_\text{between}$ component
+(MI integration) is essentially flat across all modes (0.051--0.053),
+confirming that the current MI estimation pipeline does not capture
+broadcast-mediated information flow.
 
-\item \textbf{Distribution introduces bottlenecks.} The finding that a single
-integrated processor ($\Phi = 0.860$) outperforms all multi-processor
-architectures ($\Phi = 0.63$--$0.83$) aligns with the
-synergy--redundancy framework of Luppi et al.\ (2024)~\cite{luppi2024synergistic}.
-Splitting computation across processors and re-integrating through broadcast
-may increase redundant information (multiple processors representing the same
-stimulus similarly) at the expense of synergistic information (complementary
-representations that together specify more than the sum of their parts). The
-attention weight collapse (cosine similarity $> 0.95$) provides direct
-evidence for this interpretation.
+\subsection{Processor Differentiation: A Small but Reliable Effect}
 
-From the perspective of causal emergence~\cite{hoel2013causal}, the
-single-processor condition can be viewed as a \textit{macro-scale} causal
-unit (the entire recurrent network operating as one integrated system), while
-the multi-processor conditions operate at a \textit{micro-scale} (individual
-processors as causal units, with broadcast as an aggregation mechanism).
-Hoel et al.\ demonstrated that macro-scale descriptions can exhibit
-\textit{greater} effective information than their micro-scale constituents---a
-phenomenon termed causal emergence. Our Finding~3 instantiates this principle
-in a neural architecture: the macro-scale single processor achieves higher
-$\Phi$ than any micro-scale aggregation of five processors plus broadcast.
-This connection situates CGWT's computational constraints within the broader
-causal emergence framework---and, notably, within the pages of this
-journal~\cite{hoel2013causal}.
-\end{enumerate}
+The one signal that survives all corrections and analysis methods is the
+differentiation effect. Structurally heterogeneous processors
+(competitive: $\Phi = 1.046$) modestly but reliably outperform structurally
+homogeneous processors (homogeneous competitive: $\Phi = 1.022$). At the
+stimulus level (20 independent means per mode), this difference is
+statistically significant ($d = 0.13$, $p < 0.001$).
 
-\subsection{The Coalition Consensus Paradox}
+The effect size is small because differentiation only affects the
+complexity term ($\omega_\text{diff} = 0.25$) of the composite $\Phi$,
+and because the homogeneous processors still differ in their random seeds
+and noise realizations even though they share the same $W_\text{rec}$
+topology. A maximal differentiation manipulation---five randomly initialized
+unstructured $W_\text{rec}$ matrices---would likely produce a larger effect
+but at the cost of interpretability (no systematic specialization).
 
-The failure of coalition consensus to outperform competitive selection is,
-paradoxically, one of the more informative results of this study. The
-attention weight data diagnose the problem with precision: structurally
-differentiated $W_\text{rec}$ matrices are insufficient to produce
-functionally differentiated representations when all processors face the same
-stimulus and the same workspace context. This is not a failure of the CGWT
-concept but a discovery about its boundary conditions---coalition is only
-meaningful when there is genuine disagreement to resolve.
+For multi-agent AI, this finding carries a tempered message: agent
+heterogeneity improves information integration, but the improvement is
+marginal unless coupled with mechanisms that amplify differentiation in
+the representations that agents actually produce when processing shared
+inputs.
 
-This finding suggests a conceptual refinement of CGWT: coalition broadcast
-should be \textit{adaptive}---deployed only when processor outputs are
-sufficiently differentiated to make consensus non-trivial. When all processors
-agree (high cosine similarity), competitive selection is functionally
-equivalent to coalition consensus and computationally cheaper. This
-adaptivity principle resonates with the ``ignition threshold'' in standard
-GWT~\cite{dehaene2011experimental} and the ``meta-stability'' concept in
-computational neuroscience~\cite{tononi2016integrated}.
+\subsection{Coalition Formation: Achieved but Inconsequential}
 
-\subsection{Relation to the IIT--FEP Bridge}
+After correcting the pairwise agreement mechanism, coalition modes now
+form genuine multi-member coalitions. The effective ensemble size increased
+from approximately 1.0 to approximately 2.5 processors, and merge
+differentiation retention improved by a factor of 4. The attention weight
+standard deviation rose from an artifactually low 0.0015 to a more realistic
+0.016, indicating that the neural cosine similarity measure is capturing
+meaningful variation among processor outputs.
 
-Kearney (2026)~\cite{kearney2026information} demonstrated that when IIT's
-$\Phi$ and the Free Energy Principle's variational free energy are both
-expressed as Maximum Caliber (MaxCal) deviation measures, they become
-mathematically inter-translatable. Specifically, the MaxCal framework shows
-that both $\Phi$ and variational free energy can be derived from the same
-Lagrangian, with the difference lying only in the choice of constraints:
-$\Phi$ constrains past-future irreducibility while $F$ constrains
-prediction--observation divergence. Our world model component implements a
-computational approximation of this bridge: the consensus scoring function
-measures alignment with the shared representational prior (analogous to the
-FEP prior), while the prediction error tracking captures the surprisal
-component (analogous to the FEP likelihood term).
+Yet this operational success does not translate into any $\Phi$ advantage.
+Coalition modes produce the same $\Phi$ as competitive selection because
+the merged representation---whether formed by mean, attention-weighted
+average, or concatenation+projection---enters the workspace as a single
+activation vector. The TPM constructed from workspace history does not
+distinguish between ``this vector came from one processor'' and ``this
+vector came from a coalition of three.'' The causal structure downstream
+of the workspace is identical.
 
-We can formalize the connection in CGWT's terms. Let the world model's
-consensus representation at cycle $t$ be $C_t$ and a coalition's merged
-output be $M$. The coalition selection that maximizes $\Phi$ under the
-MaxCal interpretation would be:
+This finding suggests that coalition consensus broadcast and competitive
+winner-take-all broadcast are \textit{causally equivalent} at the level of
+the global workspace state---a result that constrains the scope of CGWT's
+claims. If coalition is to produce higher $\Phi$, the benefit must arise
+either upstream of the workspace (in the selection process itself) or
+through a representation that preserves coalition structure within the
+broadcast (e.g., concatenation without projection, or a multi-modal
+workspace).
 
-\begin{equation}
-\text{coalition}^* = \arg\max_{\text{coalitions}} \left[ \underbrace{I(M; C_t)}_{%
-\text{mutual information with prior}} - \underbrace{\sum_{i \in \text{coalition}}%
-D_\text{KL}(q_i \| p_{i|M})}_{\text{prediction error penalty}} \right]
-\label{eq:maxcal_coalition}
-\end{equation}
+\subsection{Methodological Contribution: Diagnostic Tools That Found Real Bugs}
 
-where $q_i$ is processor $i$'s predicted next state given the merged
-broadcast and $p_{i|M}$ is its actual state. In the current implementation,
-only the first term is operationalized (via cosine similarity scoring); the
-second term---the prediction error penalty that would select for
-information-rich coalitions---is absent. This omission explains why coalition
-formation currently collapses to uniform weighting: without a penalty for
-redundancy, the system has no incentive to prefer differentiated processors.
+The two implementation issues corrected during peer review were discovered
+\textit{because} the diagnostic tools developed as part of this work made
+them visible. The $\Phi_\text{within}$ / $\Phi_\text{between}$ decomposition
+revealed an anomalous pattern---flat $\Phi_\text{between}$ coupled with
+linearly growing $\Phi_\text{within}$---that pointed to the EI accumulation
+artifact. Per-cycle coalition size tracking revealed that 92\% of
+``collaborative'' cycles had a single-member coalition, exposing the
+pairwise agreement bug. Per-cycle $\Phi$ tracking enabled the accumulation
+artifact to be quantified precisely (linear slope of $\sim$0.33 per cycle).
 
-The synergy--redundancy decomposition of Luppi et al.\
-(2024)~\cite{luppi2024synergistic} provides a complementary lens.
-Their partial information decomposition (PID) framework decomposes mutual
-information into redundant, unique, and synergistic components. In CGWT terms:
-\textit{competitive selection preserves unique information} (one processor's
-full representation enters the workspace), while \textit{coalition mean-merge
-amplifies redundant information and destroys synergy} (complementary patterns
-cancel when averaged). The attention weight data support this interpretation:
-near-uniform weights ($\cos\theta \approx 0.95$) imply that all processors
-carry predominantly redundant information about the stimulus, so coalition
-formation adds no synergistic benefit over competitive selection.
+These diagnostic capabilities---decomposing $\Phi$ into within- and
+between-processor components, tracking attention weight distributions,
+monitoring coalition sizes per cycle, and computing merge fidelity
+metrics---constitute a transferable toolkit. Any computational study
+of broadcast-mediated information integration would benefit from deploying
+these diagnostics, regardless of the specific theoretical framework.
 
-Future CGWT implementations could operationalize the MaxCal bridge more
-directly: rather than using the world model only for consensus scoring, the
-coalition selection objective could be formalized as \textit{minimizing the
-coalition's collective variational free energy}---selecting the coalition
-whose merged representation best predicts future stimuli while maintaining
-high complexity (differentiation).
+\subsection{Relation to the MaxCal IIT--FEP Bridge}
+
+The null result for broadcast mechanism effects does not diminish the
+relevance of the MaxCal bridge~\cite{kearney2026information}. The coalition
+selection objective (Eq.~\ref{eq:maxcal_coalition}) remains valid as a
+formalization, but the current implementation only operationalizes the
+first term (cosine similarity to workspace prior). The second term---the
+prediction error penalty---is absent, and the finding that all broadcast
+mechanisms are causally equivalent at the workspace level suggests that
+the missing term is where the differentiation would manifest. Future
+implementations should operationalize the full objective, using
+processor-specific prediction errors to weight coalition contributions
+such that processors with lower prediction error (better world model
+alignment) receive higher weight, and coalitions that minimize collective
+prediction error are preferentially selected.
+
 \subsection{Limitations}
 
 \begin{enumerate}
 \item \textbf{$\Phi$ approximation validity.} Our $\Phi_\text{approx}$ has
 not been validated against exact $\Phi$ on small tractable systems.
-While sensitivity analysis supports the robustness of rank-ordering,
-validation of the approximation's rank-correlation with true $\Phi$ on
-systems where both can be computed (e.g., $N = 6$--$12$ binary units) remains
-as future work.
+The finding that $\Phi$ is predominantly determined by neuron count makes
+this validation especially urgent: if exact $\Phi$ on tractable systems also
+scales primarily with system size, the approximation captures a genuine signal;
+if not, the approximation's sensitivity to causal structure may be
+insufficient. Validation on  = 6hmtBc-2$ binary-unit systems remains the
+highest-priority future work.
 
-\item \textbf{Calibration over-clustering.} The calibration anchors
-($n_\text{clusters} = 30$, $n_\text{history} = 25$) exhibit
-over-clustering artifact: each cluster receives fewer than one observation on
-average, producing near-deterministic TPMs that artificially inflate EI.
-Future calibration should use $n_\text{clusters} \leq n_\text{history}/5$.
+\item \textbf{TPM window size and cycle count.} The fixed TPM window
+( = 10$) and the small number of cycles per stimulus (5) mean that
+$\Phi$ is measured during transient dynamics rather than at steady state.
+Extending to 10--15 cycles per stimulus with a proportionally larger TPM
+window would distinguish transient from stable $\Phi$ values and may
+reveal broadcast-dependent effects that emerge only after the system
+settles.
 
-\item \textbf{Processor differentiation.} The $W_\text{rec}$ initialization
-differences are structural (different connectivity patterns) but produce
-functionally similar activation patterns when processing the same stimulus.
-More aggressive specialization strategies---different input projections,
-time constants, or nonlinearities---may be required to achieve the level of
-processor differentiation that coalition consensus requires.
+\item \textbf{Coalition merge causal equivalence.} The finding that all
+broadcast mechanisms produce equivalent $\Phi$ is partly a consequence of
+the TPM operating on workspace states: once a vector enters the workspace,
+its provenance (single processor vs.\ coalition merge) is lost. A causal
+analysis that preserves coalition membership structure through the
+broadcast may recover broadcast-dependent $\Phi$ differences.
 
-\item \textbf{Single model architecture.} All processors share the same RNN
-architecture (tanh, same $N$, same $T$). Multi-scale architectures with
-heterogeneous neuron counts and time constants may produce more realistic
-differentiation.
+\item \textbf{Processor differentiation.} Structural \text{rec}$
+differences produce functionally similar activations under shared stimulus
+input ($\cos\theta > 0.92$ in collaborative and adaptive modes). More
+aggressive specialization---different input projections, heterogeneous
+timescales ( \in \{15, 20, 25, 30, 35\}$), or non-tanh activation
+functions---may be required for coalition to confer a $\Phi$ benefit.
 
-\item \textbf{Hardware constraints.} Experiments were conducted on a single
-consumer GPU (RTX 5060 Ti, 16 GB). Scaling to larger processor counts or
-neuron counts may reveal effects not visible at current scale.
+\item \textbf{Stimulus encoding.} Natural language stimuli are encoded into
+32-dimensional vectors via deterministic hashing, discarding most semantic
+content. A stimulus ablation (replacing stimulus vectors with random noise)
+is needed to measure the stimulus-dependence of $\Phi$.
 
-\item \textbf{No behavioral task.} Our system processes stimuli in an
-open-loop manner without a behavioral output or reward signal. Embedding
-the GWT--IIT architecture in a reinforcement learning task would enable
-testing whether $\Phi$ correlates with task performance---a critical
-extension for connecting to the multi-agent AI literature.
-
-\item \textbf{Single architecture validation.} All findings derive from
-one RNN architecture (tanh, spectral radius $< 0.9$). Whether the three
-constraints hold under LSTM, GRU, or Transformer processor dynamics remains
-unexplored. A minimal cross-architecture replication (e.g., one LSTM
-condition replicating the competitive vs.\ homogeneous comparison) would
-substantially strengthen the claims of architecture-independence.
+\item \textbf{Statistical dependence.} The 5 serial cycles per stimulus
+are not independent (each cycle's output becomes the next cycle's context).
+We report stimulus-level clustered analyses (20 independent means per mode)
+alongside per-cycle tests; the clustered results are more conservative and
+should be preferred for hypothesis testing.
 \end{enumerate}
 
-\subsection{Downstream Impact Pathways}
+\subsection{Downstream Implications}
 
-Beyond the immediate GWT--IIT integration question, the three computational
-constraints identified here have potential downstream implications for
-adjacent fields:
+Despite the null results for broadcast mechanism effects, several findings
+carry implications for adjacent fields:
 
-\textbf{Multi-agent AI architecture.} Finding~2 (differentiation prerequisite,
-$d = 1.24$) implies that agent role differentiation in LLM multi-agent
-systems cannot rely on prompt engineering alone—the underlying models must
-be heterogeneous in their representational geometry. Finding~3 (single
-$>$ multi) suggests a diminishing-returns principle for agent count: when
-agent outputs are highly correlated (cosine similarity $> 0.95$), adding
-more agents increases communication cost without increasing information
-quality. Finding~4 implies that coalition consensus should be
-\textit{adaptively gated}—triggered only when agent disagreement exceeds
-a threshold—rather than unconditionally applied.
+\textbf{Multi-agent AI.} The differentiation-prerequisite finding (H7:
+ = 0.13$,  < 0.001$) corroborates the intuition that agent heterogeneity
+improves system-level properties, but the small effect size tempers
+practical significance. Agent diversity alone, without mechanisms that
+amplify representational differences, yields marginal gains. The coalition
+formation mechanism (neural cosine similarity for member selection)
+demonstrates a concrete alternative to text-based consensus in LLM
+multi-agent debate frameworks.
 
-\textbf{Neuromorphic computing.} The three constraints translate naturally
-into neuromorphic hardware design principles: (1) a high-bandwidth global
-communication bus (broadcast necessity), (2) heterogeneous core clusters
-with distinct temporal dynamics (differentiation prerequisite), and
-(3) core-to-core communication bandwidth as the bottleneck for the chip's
-effective information capacity (distribution bottleneck). Recent
-neuromorphic architectures such as Intel's Loihi~2 and IBM's NorthPole
-already explore heterogeneous cores with asynchronous communication,
-providing a potential hardware substrate for testing these constraints at
-the silicon level.
+\textbf{Neuromorphic computing.} The approximate linear scaling of $\Phi$
+with total neuron count (0.47 for 512 neurons, 1.05 for 2560 neurons)
+provides an empirical benchmark for $\Phi_\text{approx}$ as a function of
+system size on recurrent architectures. The differentiation-prerequisite
+finding translates to a testable prediction for heterogeneous vs.homogeneous core configurations on neuromorphic hardware.
 
-\textbf{Clinical consciousness metrics.} The $\Phi_\text{approx}$
-pipeline—while explicitly not validated as a clinical instrument—sketches a
-direction toward quantitative, theory-grounded screening tools for
-consciousness level assessment. If future work (a) validates
-$\Phi_\text{approx}$ against exact $\Phi$ on tractable systems and (b)
-adapts the TPM construction pipeline to EEG or iEEG time series, the
-broadcast-necessity constraint ($d = 7.43$) provides a testable
-prediction for clinical data: conditions associated with impaired
-consciousness should exhibit reduced information integration relative to
-the awake state, and the deficit should be most pronounced in the
-broadcast (global workspace) rather than local processor component.
+\textbf{Computational consciousness methodology.} The diagnostic
+toolkit---$\Phi$ decomposition, attention weight tracking, coalition size
+monitoring, per-cycle $\Phi$ trajectories---proved its value by identifying
+two non-trivial implementation issues during peer review (the EI
+accumulation artifact and the coalition formation bug). These tools
+constitute a transferable contribution to the methodology of computational
+consciousness science, applicable to any study computing $\Phi$ on
+multi-component systems.
 \end{enumerate}
 
 \subsection{Future Work}
 
-\textbf{1. Adaptive coalition with differentiation gate.} The most immediate
-next step is implementing a \textit{differentiation gate}—a threshold on
-processor activation diversity that controls whether coalition mode is
-deployed. The attention weight standard deviation already provides a
-natural metric: if $\sigma(\alpha) < \tau$ (processor weights are
-near-uniform), skip coalition and fall back to competitive selection.
-This requires approximately 50 lines of code in the existing codebase and
-would directly test whether adaptive gating restores coalition's
-advantage under conditions of genuine processor disagreement. The
-pseudocode is:
+\textbf{1. Exact $\Phi$ validation.} Validating $\Phi_\text{approx}$ against
+exact $\Phi$ on small tractable systems ($N = 6$--$12$ binary units) is
+the highest-priority next step. If the rank correlation is $\geq 0.8$, the
+current findings gain methodological credibility.
 
-\begin{quote}
-\texttt{if std(attention\_weights) > differentiation\_threshold:}\\
-\quad\texttt{coalition\_broadcast()  \# processors genuinely disagree}\\
-\texttt{else:}\\
-\quad\texttt{competitive\_broadcast()  \# near-consensus, coalition adds noise}
-\end{quote}
-
-\textbf{2. Processor specialization beyond connectivity.} More aggressive
-differentiation strategies—different input embeddings per processor,
-heterogeneous timescales ($T \in \{15, 20, 25, 30, 35\}$), and non-tanh
-activation functions (ReLU, sigmoid, softplus)—should be explored to
-create the genuine representational diversity that coalition consensus
-requires.
+\textbf{2. Coalition-aware causal analysis.} Modifying the TPM construction
+to preserve coalition membership structure through the broadcast---so that
+a coalition-merged workspace state is distinguishable from a single-winner
+state---may recover broadcast-dependent $\Phi$ differences.
 
 \textbf{3. MaxCal coalition optimization.} Implementing the full coalition
-selection objective (Eq.~\ref{eq:maxcal_coalition})—including the
-prediction error penalty term that is currently absent—would test
-whether optimization-based coalition selection outperforms the current
-scoring-based approach.
+selection objective (Eq.~\ref{eq:maxcal_coalition}) with the prediction
+error penalty term would test whether optimization-based coalition selection
+can produce a $\Phi$ advantage over simple scoring.
 
-\textbf{4. Cross-architecture replication.} The three constraints should
-be tested on at least one alternative processor architecture (LSTM
-or GRU) and one alternative agent type (LLM-based, using the existing
-noesis-llm branch) to determine whether they are architecture-specific
-or general.
+\textbf{4. Stimulus ablation and extended cycles.} Replacing stimulus
+vectors with random noise would measure stimulus-dependence. Extending
+cycles per stimulus to 10--15 would allow $\Phi$ to reach steady state.
 
-\textbf{5. Scaling to larger systems.} Scaling to 8--16 processors with
-1024+ neurons each on datacenter GPUs may reveal emergent $\Phi$ effects
-not visible at current scale, and would test whether the distribution
-bottleneck (Finding~3) scales with processor count.
+\textbf{5. Cross-architecture replication.} Testing whether $\Phi$ continues
+to scale approximately linearly with neuron count on LSTM and GRU
+architectures would establish generality.
 
-\textbf{6. Neuromorphic and clinical translation.} Longer-term, the
-three constraints provide testable predictions for neuromorphic hardware
-prototypes (Loihi~2, NorthPole) and, pending $\Phi_\text{approx}$
-validation against exact $\Phi$, for clinical EEG/iEEG data.
-Broadcast necessity ($d = 7.43$) predicts that conditions associated
-with impaired consciousness should exhibit a disproportionate deficit
-in the global workspace component of $\Phi$ relative to local
-processor components.
-
-%══════════════════════════════════════════════════════════════════════════════
-% 5. Conclusions
-%══════════════════════════════════════════════════════════════════════════════
+\textbf{6. Processor specialization beyond connectivity.} More aggressive
+specialization---different input projections, heterogeneous timescales,
+non-tanh activations---should be explored to test whether sufficient
+functional differentiation enables coalition to confer a $\Phi$ benefit.
 
 \section{Conclusions}
 
-We have presented a systematic computational investigation of the relationship
-between broadcast mechanisms and causal integrated information ($\Phi$) in a
-recurrent neural processor system. By comparing nine experimental modes
-across 900 observation cycles, we identified three robust computational
-constraints: broadcast is strictly necessary for high $\Phi$ ($d = 7.43$),
-processor differentiation is a causal prerequisite ($d = 1.24$), and
-multi-processor architecture introduces an information bottleneck relative to
-a single integrated processor.
+We implemented a 5-processor recurrent neural network system with global
+workspace broadcast and computed a tractable $\Phi$ approximation from
+neural state transition probability matrices across nine experimental
+modes (900 observation cycles). Two implementation issues---an EI
+accumulation artifact from expanding TPM windows and a coalition formation
+bug from mismatched agreement metrics---were identified through the
+diagnostic toolkit developed in this work and corrected during peer review.
 
-The CGWT hypothesis that coalition consensus broadcast produces higher $\Phi$
-than competitive winner-take-all selection was not supported, but the null
-result carries diagnostic value: attention weights collapse to near-uniformity
-when all processors produce functionally similar representations, revealing
-that the prerequisite for meaningful coalition---genuine processor
-disagreement---is not satisfied by structural $W_\text{rec}$ differentiation
-alone.
+After corrections, the principal empirical finding is a null result:
+\textbf{among multi-processor modes, broadcast mechanism explains
+essentially none of the variance in $\Phi_\text{approx}$}. All seven
+multi-processor modes produce $\Phi$ in the narrow range 1.022--1.047,
+dominated by the total recurrent neuron count (2560 for five processors
+vs.\ 512 for one). The one reliable signal is a small differentiation
+effect: structurally heterogeneous processors modestly outperform
+homogeneous ones (clustered $d = 0.13$, $p < 0.001$).
 
-These findings do not resolve the GWT--IIT integration challenge, but they
-constrain the space of viable solutions. Any architecture seeking to unify
-broadcast-based conscious access (GWT) with causal integration ($\Phi$, IIT)
-must solve three problems simultaneously: how to broadcast without destroying
-differentiation, how to specialize processors beyond structural initialization,
-and how to form coalitions adaptively---only when consensus would be
-non-trivial. Beyond consciousness science, these constraints carry actionable
-implications for multi-agent AI architecture design (heterogeneous agents,
-differentiation-gated coalition), neuromorphic hardware (global bus,
-heterogeneous cores, bandwidth as $\Phi$ bottleneck), and---contingent
-on $\Phi_\text{approx}$ validation---clinical consciousness metrics.
-The current work provides empirically grounded starting
-conditions for each of these problems.
+The CGWT hypothesis that coalition consensus broadcast produces higher
+$\Phi$ than competitive selection is not supported. After correcting the
+coalition formation mechanism, genuine multi-member coalitions now form
+(effective ensemble size $\approx 2.5$), but the merged representation
+produces causally equivalent workspace states to single-winner selection.
+
+The contribution of this work is therefore methodological rather than
+confirmatory. The diagnostic framework---$\Phi$ decomposition into within-
+and between-processor components, attention weight distribution tracking,
+coalition size monitoring, per-cycle $\Phi$ trajectory analysis, and merge
+fidelity metrics---enabled the discovery of two non-trivial implementation
+issues and provides a transferable toolkit for computational studies of
+broadcast-mediated information integration. The neuron-count dominance
+finding constrains the scope of claims that broadcast architecture alone
+can produce measurable $\Phi$ differences under the current approximation,
+and the differentiation-prerequisite finding provides a modest but reliable
+empirical anchor for processor specialization as a design principle.
 
 \vspace{6pt}
 \noindent\textbf{Data and Code Availability:} All code, experiment
 configurations, raw data (per-cycle JSONL), and analysis scripts are
 available at \url{https://github.com/guyu-adam/noesis} under the MIT license.
 The specific experiment data reported in this paper correspond to commit
-\texttt{a905da1} and the configuration file
-\texttt{experiment\_config\_20260521\_132831.json}.
+\texttt{ef5a1ff} and the configuration file
+\texttt{experiment\_config\_20260521\_142426.json}.
 
 \vspace{6pt}
 \noindent\textbf{Acknowledgments:} The author thanks the anonymous reviewers
 at Entropy whose detailed methodological critiques substantially improved the
 experimental design, statistical analysis, and narrative framing of this work.
-The three-round review process transformed a placeholder-filled draft into a
+The peer review process identified two implementation issues (EI accumulation
+artifact and coalition formation bug) whose correction transformed the
+empirical findings. The revised manuscript was substantially improved by
+this scrutiny. The review process transformed a placeholder-filled draft into a
 preregistered, controlled computational experiment with interpretable null
 results.
 
